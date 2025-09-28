@@ -47,10 +47,7 @@ const sepoliaTestnet = {
 const { chains, publicClient, webSocketPublicClient } = configureChains(
     [sepoliaTestnet, mainnet, goerli, sepolia],
     [
-        publicProvider({
-            priority: 0,
-            weight: 1,
-        })
+        publicProvider()
     ]
 );
 
@@ -66,9 +63,6 @@ const config = createConfig({
     publicClient,
     // Disable WebSocket to avoid WalletConnect connection issues
     webSocketPublicClient: undefined,
-    // Add retry configuration
-    retryCount: 3,
-    retryDelay: 1000,
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {

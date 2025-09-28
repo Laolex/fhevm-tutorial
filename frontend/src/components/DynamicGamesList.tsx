@@ -47,7 +47,7 @@ export const DynamicGamesList = memo(function DynamicGamesList({ onJoinGame }: {
 
             // Get the next game ID to know how many games exist
             const nextGameId = await publicClient.readContract({
-                address: contractAddress,
+                address: contractAddress as `0x${string}`,
                 abi: [
                     {
                         "type": "function",
@@ -95,7 +95,7 @@ export const DynamicGamesList = memo(function DynamicGamesList({ onJoinGame }: {
         try {
             const [gameInfoResult, playersResult, hasJoined, canJoin, canMakeGuess] = await Promise.all([
                 publicClient.readContract({
-                    address: contractAddress,
+                    address: contractAddress as `0x${string}`,
                     abi: [
                         {
                             "type": "function",
@@ -120,7 +120,7 @@ export const DynamicGamesList = memo(function DynamicGamesList({ onJoinGame }: {
                     args: [BigInt(gameId)]
                 }),
                 publicClient.readContract({
-                    address: contractAddress,
+                    address: contractAddress as `0x${string}`,
                     abi: [
                         {
                             "type": "function",
@@ -134,7 +134,7 @@ export const DynamicGamesList = memo(function DynamicGamesList({ onJoinGame }: {
                     args: [BigInt(gameId)]
                 }),
                 publicClient.readContract({
-                    address: contractAddress,
+                    address: contractAddress as `0x${string}`,
                     abi: [
                         {
                             "type": "function",
@@ -151,7 +151,7 @@ export const DynamicGamesList = memo(function DynamicGamesList({ onJoinGame }: {
                     args: [BigInt(gameId), address]
                 }),
                 publicClient.readContract({
-                    address: contractAddress,
+                    address: contractAddress as `0x${string}`,
                     abi: [
                         {
                             "type": "function",
@@ -165,7 +165,7 @@ export const DynamicGamesList = memo(function DynamicGamesList({ onJoinGame }: {
                     args: [BigInt(gameId)]
                 }),
                 publicClient.readContract({
-                    address: contractAddress,
+                    address: contractAddress as `0x${string}`,
                     abi: [
                         {
                             "type": "function",

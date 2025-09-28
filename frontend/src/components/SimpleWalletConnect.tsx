@@ -23,8 +23,8 @@ export function SimpleWalletConnect() {
         console.log('🦊 MetaMask Detection Debug:', {
             hasWindow: typeof window !== 'undefined',
             hasEthereum: typeof window !== 'undefined' && !!window.ethereum,
-            isMetaMask: typeof window !== 'undefined' && window.ethereum?.isMetaMask,
-            providers: typeof window !== 'undefined' && window.ethereum?.providers?.length || 0,
+            isMetaMask: typeof window !== 'undefined' && (window.ethereum as any)?.isMetaMask,
+            providers: typeof window !== 'undefined' && (window.ethereum as any)?.providers?.length || 0,
             connectors: connectors.length
         });
     }, [connectors]);
@@ -90,8 +90,8 @@ export function SimpleWalletConnect() {
     // Check if MetaMask is available
     const isMetaMaskAvailable = typeof window !== 'undefined' &&
         window.ethereum &&
-        (window.ethereum.isMetaMask ||
-            window.ethereum.providers?.find(provider => provider.isMetaMask));
+        ((window.ethereum as any).isMetaMask ||
+            (window.ethereum as any).providers?.find((provider: any) => provider.isMetaMask));
 
     return (
         <div className="card">
@@ -110,8 +110,8 @@ export function SimpleWalletConnect() {
                             <summary className="text-xs text-yellow-700 cursor-pointer">Debug Info</summary>
                             <div className="text-xs text-yellow-600 mt-1 font-mono">
                                 <p>window.ethereum: {typeof window !== 'undefined' && window.ethereum ? '✅' : '❌'}</p>
-                                <p>isMetaMask: {typeof window !== 'undefined' && window.ethereum?.isMetaMask ? '✅' : '❌'}</p>
-                                <p>providers: {typeof window !== 'undefined' && window.ethereum?.providers?.length || 0}</p>
+                                <p>isMetaMask: {typeof window !== 'undefined' && (window.ethereum as any)?.isMetaMask ? '✅' : '❌'}</p>
+                                <p>providers: {typeof window !== 'undefined' && (window.ethereum as any)?.providers?.length || 0}</p>
                             </div>
                         </details>
                     </div>

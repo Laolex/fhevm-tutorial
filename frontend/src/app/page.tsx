@@ -85,13 +85,13 @@ export default function Home() {
         console.log('🎮 Joining game:', gameId);
         console.log('🎮 Setting selectedGameId to:', gameId);
         console.log('🎮 Setting gameMode to: participant-game');
-        
+
         // Prevent unnecessary updates if already in the same state
         if (selectedGameId === gameId && gameMode === 'participant-game') {
             console.log('🎮 Already in correct state, skipping update');
             return;
         }
-        
+
         setSelectedGameId(gameId);
         setGameMode('participant-game');
     }, [selectedGameId, gameMode]);

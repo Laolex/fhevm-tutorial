@@ -148,14 +148,14 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
         if (gameInfo && gameInfo.status === 1 && !gameInfo.gameWon && players.length > 0) {
             const maxGuessesPerPlayer = 3;
             const totalPossibleGuesses = players.length * maxGuessesPerPlayer;
-            
+
             if (gameInfo.totalGuesses >= totalPossibleGuesses) {
                 console.log('🎮 All players have made maximum guesses, auto-ending game...');
                 // Show notification that game will end
                 setNotificationMessage('🎯 All players have made their maximum guesses! Game will end automatically.');
                 setShowNotification(true);
                 setTimeout(() => setShowNotification(false), 5000);
-                
+
                 // Auto-end the game after a short delay
                 setTimeout(() => {
                     if (address && gameInfo.gameMaster?.toLowerCase() === address.toLowerCase()) {
@@ -220,7 +220,7 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
             setTotalGuess('');
             // Refresh guess count after making a guess
             await fetchGuessCount();
-            
+
             // Show success notification
             setNotificationMessage('🎯 Your guess has been registered successfully!');
             setShowNotification(true);
