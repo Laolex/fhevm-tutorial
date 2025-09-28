@@ -1,0 +1,29 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "lib": [
+            "ES2022"
+        ],
+        "module": "NodeNext",
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        "allowSyntheticDefaultImports": true,
+        "forceConsistentCasingInFileNames": true,
+        "moduleResolution": "NodeNext",
+        "allowImportingTsExtensions": true,
+        "noEmit": true,
+        "incremental": true,
+        "isolatedModules": true,
+        "esModuleInterop": true,
+        "strict": true
+    },
+    "include": [
+        "hardhat.config.ts",
+        "scripts/**/*",
+        "test/**/*"
+    ],
+    "exclude": [
+        "node_modules",
+        "frontend"
+    ]
+}

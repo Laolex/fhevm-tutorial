@@ -1,0 +1,46 @@
+{
+    "name": "hello-fhevm-tutorial",
+    "version": "1.0.0",
+    "description": "A beginner-friendly tutorial for building your first confidential dApp using FHEVM",
+    "main": "index.js",
+    "scripts": {
+        "compile": "hardhat compile",
+        "test": "hardhat test",
+        "test:fhevm": "hardhat test test/FHEVM-Integration.test.ts",
+        "deploy:sepolia": "hardhat run scripts/deploy-game-master.ts --network sepolia",
+        "deploy:zama": "hardhat run scripts/deploy-game-master.ts --network zama-testnet",
+        "check-fhevm": "hardhat fhevm check-fhevm-compatibility --address",
+        "dev": "cd frontend && npm run dev",
+        "build": "cd frontend && npm run build",
+        "start": "cd frontend && npm run start",
+        "install:all": "npm install && cd frontend && npm install",
+        "clean": "hardhat clean && cd frontend && rm -rf node_modules dist",
+        "test-game": "hardhat run scripts/test-game.ts",
+        "verify": "hardhat run scripts/verify-contract.ts",
+        "setup": "chmod +x scripts/setup.sh && ./scripts/setup.sh",
+        "type-check": "cd frontend && npm run type-check"
+    },
+    "keywords": [
+        "fhevm",
+        "zama",
+        "confidential",
+        "blockchain",
+        "tutorial",
+        "solidity",
+        "react"
+    ],
+    "author": "Your Name",
+    "license": "MIT",
+    "devDependencies": {
+        "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+        "@types/node": "^20.0.0",
+        "hardhat": "^2.19.0",
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "@openzeppelin/contracts": "^5.4.0",
+        "dotenv": "^17.2.2",
+        "ethers": "^6.0.0",
+        "fhevm": "^0.1.13"
+    }
+}
