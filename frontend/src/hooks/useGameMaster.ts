@@ -281,7 +281,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
             getGameIdByInviteCode: async () => 0,
             getPlayerGuessCount: async () => 0,
             publicClient,
-            contractAddress: '0xa7B5206e874176a3B9E0a8F53ecd6A8F2aa2712d',
+            contractAddress: '0x8F7ABA6a47C4fD13b1Ff0B83Fd85aD7322B5039d',
         };
     }
     lastHookCallTime = now;

@@ -162,16 +162,19 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
             // Only auto-end if:
             // 1. We've reached the theoretical maximum guesses
             // 2. Game has been active for at least 10 seconds (to allow players to join)
+            // 3. All players have actually joined (no empty slots)
             const gameActiveTime = Date.now() - (gameInfo.gameStartTime * 1000);
+            const allPlayersJoined = gameInfo.playerCount >= gameInfo.maxPlayers;
             const shouldAutoEnd = gameInfo.totalGuesses >= totalPossibleGuesses && 
-                                 gameActiveTime > 10000; // 10 seconds
+                                 gameActiveTime > 10000 && // 10 seconds
+                                 allPlayersJoined; // All players must have joined
 
             if (shouldAutoEnd && !hasShownAutoEndAlert) {
                 // Show notification that game will end (only once)
-                setNotificationMessage('🎯 All players have made their maximum guesses! Game will end automatically.');
+                setNotificationMessage('🎯 All players have made their maximum guesses! Winner will be announced and game will end automatically.');
                 setShowNotification(true);
                 setHasShownAutoEndAlert(true);
-                
+
                 setTimeout(() => setShowNotification(false), 5000);
 
                 // Auto-end the game after a short delay
@@ -180,7 +183,7 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
                         try {
                             setHasAutoEnded(true);
                             await endGame(gameId);
-                            
+
                             // Add game to history after auto-ending
                             const gameHistoryItem = {
                                 gameId: gameId,
@@ -313,18 +316,18 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
         try {
             setIsRevealingSecret(true);
             setError(null);
-            
+
             if (!getSecretNumber) {
                 throw new Error('Secret number function not available');
             }
-            
+
             const secret = await getSecretNumber(gameId);
             setSecretNumber(secret);
-            
+
             setNotificationMessage(`🔐 Secret number revealed: ${secret}`);
             setShowNotification(true);
             setTimeout(() => setShowNotification(false), 5000);
-            
+
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to reveal secret number');
         } finally {
@@ -480,7 +483,7 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
                         <div className="flex items-center space-x-2 mb-3">
                             <span className="font-semibold text-blue-800">🔐 Game Master Tools</span>
                         </div>
-                        
+
                         {secretNumber !== null ? (
                             <div className="p-3 bg-white border border-blue-300 rounded-lg">
                                 <p className="text-blue-800 font-semibold">Secret Number:</p>
