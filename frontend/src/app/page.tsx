@@ -182,80 +182,6 @@ export default function Home() {
             <div className="max-w-6xl mx-auto px-4 space-y-8">
                 <GameHeader />
 
-                {/* Tutorial Section */}
-                <div className="card-glass">
-                    <div className="flex items-center space-x-3 mb-4">
-                        <BookOpen className="w-6 h-6 text-blue-600" />
-                        <h2 className="text-xl font-bold text-gray-800">📚 FHEVM Tutorial</h2>
-                    </div>
-                    <p className="text-gray-600 mb-4">
-                        Learn how to build confidential blockchain applications with FHEVM. 
-                        This tutorial covers everything from basics to advanced concepts.
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <h3 className="font-semibold text-gray-800">📖 Tutorial Chapters</h3>
-                            <div className="space-y-1 text-sm">
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-blue-500">1.</span>
-                                    <span>FHEVM Basics & Concepts</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-blue-500">2.</span>
-                                    <span>Environment Setup</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-blue-500">3.</span>
-                                    <span>Smart Contract Development</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-blue-500">4.</span>
-                                    <span>Frontend Integration</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-blue-500">5.</span>
-                                    <span>Deployment & Testing</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <h3 className="font-semibold text-gray-800">🚀 Quick Links</h3>
-                            <div className="space-y-2">
-                                <a 
-                                    href="https://github.com/Laolex/fhevm-tutorial/blob/main/docs/01-fhevm-basics.md" 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors"
-                                >
-                                    <BookOpen className="w-4 h-4" />
-                                    <span>Start Tutorial</span>
-                                    <ExternalLink className="w-3 h-3" />
-                                </a>
-                                <a 
-                                    href="https://github.com/Laolex/fhevm-tutorial" 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors"
-                                >
-                                    <BookOpen className="w-4 h-4" />
-                                    <span>View Source Code</span>
-                                    <ExternalLink className="w-3 h-3" />
-                                </a>
-                                <a 
-                                    href="https://www.zama.ai/post/zama-bounty-program-season-10-create-a-hello-fhevm-tutorial" 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors"
-                                >
-                                    <BookOpen className="w-4 h-4" />
-                                    <span>Zama Bounty Program</span>
-                                    <ExternalLink className="w-3 h-3" />
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="space-y-6">
                         {gameInfo && (
@@ -391,6 +317,80 @@ export default function Home() {
                                     <strong>Transparent Results:</strong> Only the final winner and
                                     secret number are revealed publicly.
                                 </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tutorial Section - Moved to Bottom */}
+                <div className="card-glass">
+                    <div className="flex items-center space-x-3 mb-4">
+                        <BookOpen className="w-6 h-6 text-blue-600" />
+                        <h2 className="text-xl font-bold text-gray-800">📚 FHEVM Tutorial</h2>
+                    </div>
+                    <p className="text-gray-600 mb-4">
+                        Learn how to build confidential blockchain applications with FHEVM.
+                        This tutorial covers everything from basics to advanced concepts.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <h3 className="font-semibold text-gray-800">📖 Tutorial Chapters</h3>
+                            <div className="space-y-1 text-sm">
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-blue-500">1.</span>
+                                    <span>FHEVM Basics & Concepts</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-blue-500">2.</span>
+                                    <span>Environment Setup</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-blue-500">3.</span>
+                                    <span>Smart Contract Development</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-blue-500">4.</span>
+                                    <span>Frontend Integration</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-blue-500">5.</span>
+                                    <span>Deployment & Testing</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <h3 className="font-semibold text-gray-800">🚀 Quick Links</h3>
+                            <div className="space-y-2">
+                                <a
+                                    href="https://github.com/Laolex/fhevm-tutorial/blob/main/docs/01-fhevm-basics.md"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors"
+                                >
+                                    <BookOpen className="w-4 h-4" />
+                                    <span>Start Tutorial</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                </a>
+                                <a
+                                    href="https://github.com/Laolex/fhevm-tutorial"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors"
+                                >
+                                    <BookOpen className="w-4 h-4" />
+                                    <span>View Source Code</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                </a>
+                                <a
+                                    href="https://www.zama.ai/post/zama-bounty-program-season-10-create-a-hello-fhevm-tutorial"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors"
+                                >
+                                    <BookOpen className="w-4 h-4" />
+                                    <span>Zama Bounty Program</span>
+                                    <ExternalLink className="w-3 h-3" />
+                                </a>
                             </div>
                         </div>
                     </div>

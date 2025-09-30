@@ -51,11 +51,20 @@ contract SecretGameMaster {
         uint8 speedBonusThreshold; // First X correct guesses get speed bonus
         uint8 hintsGiven; // Number of hints given
         uint256 gameStartTime; // When game was activated
+        // Commit-reveal support
+        bytes32 secretCommitment; // keccak256(abi.encodePacked(secretNumber, nonce))
+        bool secretRevealed;
     }
 
-    // Games storage
-    mapping(uint256 => Game) public games;
+    // Games storage (internal to avoid auto-generated getters exposing nested mappings)
+    mapping(uint256 => Game) internal games;
     uint256 public nextGameId = 1;
+    // Invite code lookup for O(1) game id resolution
+    mapping(bytes32 => uint256) private inviteCodeToGameId;
+    // Optional VRF coordinator (for real randomness integration)
+    address public vrfCoordinator;
+    // Deployer (optional)
+    address public deployer;
 
     // Events
     event GameMasterClaimed(address indexed gameMaster);
@@ -177,6 +186,9 @@ contract SecretGameMaster {
         hasActiveGame[msg.sender] = true;
         gameMasterGameId[msg.sender] = gameId;
 
+        // Register invite code mapping for O(1) lookup
+        inviteCodeToGameId[keccak256(bytes(game.inviteCode))] = gameId;
+
         emit GameCreated(gameId, msg.sender, game.inviteCode);
     }
 
@@ -192,7 +204,23 @@ contract SecretGameMaster {
 
         require(game.status == GameStatus.Waiting, "Game not in waiting state");
 
-        // Generate blockchain-random secret number
+        // If commit-reveal was used, do not set plaintext secret here
+        if (game.secretCommitment != bytes32(0)) {
+            // secret will be revealed later; mark active without exposing secret
+            game.status = GameStatus.Active;
+            game.gameStartTime = block.timestamp;
+
+            emit GameStarted(
+                gameId,
+                msg.sender,
+                game.maxPlayers,
+                game.minRange,
+                game.maxRange
+            );
+            return;
+        }
+
+        // Legacy behavior: Generate blockchain-random secret number (not private)
         uint256 randomSeed = uint256(
             keccak256(
                 abi.encodePacked(
@@ -224,11 +252,43 @@ contract SecretGameMaster {
     }
 
     /**
+     * @dev Set a secret commitment (commit-reveal). Commitment = keccak256(abi.encodePacked(secretNumber, nonce))
+     * Must be set by game master before activating the game. Optional: if not set, legacy behavior uses on-chain randomness.
+     */
+    function setSecretCommitment(uint256 _gameId, bytes32 _commitment) external {
+        require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
+        Game storage game = games[_gameId];
+        require(game.gameMaster == msg.sender, "Not game master");
+        require(game.status == GameStatus.Waiting, "Game not in waiting state");
+        require(game.secretCommitment == bytes32(0), "Commitment already set");
+
+        game.secretCommitment = _commitment;
+    }
+
+    /**
+     * @dev Reveal the secret after the game is finished. Game master provides secret and nonce.
+     */
+    function revealSecret(uint256 _gameId, uint8 _secretNumber, string memory _nonce) external {
+        require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
+        Game storage game = games[_gameId];
+        require(game.gameMaster == msg.sender, "Not game master");
+        require(game.status == GameStatus.Finished, "Game must be finished to reveal secret");
+        require(game.secretCommitment != bytes32(0), "No commitment set");
+        require(!game.secretRevealed, "Secret already revealed");
+
+        bytes32 expected = keccak256(abi.encodePacked(_secretNumber, _nonce));
+        require(expected == game.secretCommitment, "Commitment mismatch");
+
+        game.secretNumber = _secretNumber;
+        game.secretRevealed = true;
+    }
+
+    /**
      * @dev Join a game using invite code
      * @param _inviteCode The invite code for the game
      */
     function joinGameWithInvite(string memory _inviteCode) external {
-        // Find game by invite code (simplified - in production, use a mapping)
+        // Find game by invite code using mapping
         uint256 gameId = findGameByInviteCode(_inviteCode);
         require(gameId > 0, "Invalid invite code");
 
@@ -508,6 +568,9 @@ contract SecretGameMaster {
     function getPlayers(
         uint256 _gameId
     ) external view returns (address[] memory) {
+            // Commit-reveal support
+            bytes32 secretCommitment; // keccak256(abi.encodePacked(secretNumber, nonce))
+            bool secretRevealed;
         require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
         return games[_gameId].players;
     }
@@ -574,16 +637,9 @@ contract SecretGameMaster {
     function findGameByInviteCode(
         string memory _inviteCode
     ) internal view returns (uint256) {
-        // Simplified search - in production, use a mapping
-        for (uint256 i = 1; i < nextGameId; i++) {
-            if (
-                keccak256(bytes(games[i].inviteCode)) ==
-                keccak256(bytes(_inviteCode))
-            ) {
-                return i;
-            }
-        }
-        return 0;
+        // Use mapping for O(1) lookup. Returns 0 if not found.
+        bytes32 key = keccak256(bytes(_inviteCode));
+        return inviteCodeToGameId[key];
     }
 
     function uint2str(uint256 _i) internal pure returns (string memory) {
