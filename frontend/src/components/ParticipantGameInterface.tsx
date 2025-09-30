@@ -165,9 +165,9 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
             // 3. All players have actually joined (no empty slots)
             const gameActiveTime = Date.now() - (gameInfo.gameStartTime * 1000);
             const allPlayersJoined = gameInfo.playerCount >= gameInfo.maxPlayers;
-            const shouldAutoEnd = gameInfo.totalGuesses >= totalPossibleGuesses && 
-                                 gameActiveTime > 10000 && // 10 seconds
-                                 allPlayersJoined; // All players must have joined
+            const shouldAutoEnd = gameInfo.totalGuesses >= totalPossibleGuesses &&
+                gameActiveTime > 10000 && // 10 seconds
+                allPlayersJoined; // All players must have joined
 
             if (shouldAutoEnd && !hasShownAutoEndAlert) {
                 // Show notification that game will end (only once)
