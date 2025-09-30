@@ -43,6 +43,14 @@ contract SecretGameMaster {
         mapping(address => bool) hasJoined;
         mapping(address => uint8[]) playerSecretGuesses;
         mapping(address => uint8[]) playerTotalGuesses;
+        // Enhanced features
+        uint8 maxGuessesPerPlayer; // Custom guess limit per player
+        uint8 winType; // 1=correct guess, 2=closest guess, 3=speed bonus
+        address closestGuesser; // Player with closest guess
+        uint8 closestGuess; // The closest guess value
+        uint8 speedBonusThreshold; // First X correct guesses get speed bonus
+        uint8 hintsGiven; // Number of hints given
+        uint256 gameStartTime; // When game was activated
     }
 
     // Games storage
@@ -71,6 +79,25 @@ contract SecretGameMaster {
     event GameReset(uint256 indexed gameId);
     event GameEnded(uint256 indexed gameId, address indexed gameMaster);
 
+    // Enhanced events
+    event ClosestGuessWinner(
+        uint256 indexed gameId,
+        address indexed winner,
+        uint8 guess,
+        uint8 secretNumber
+    );
+    event SpeedBonus(
+        uint256 indexed gameId,
+        address indexed winner,
+        uint8 guessNumber
+    );
+    event HintGiven(uint256 indexed gameId, string hint, uint8 hintNumber);
+    event GameWonWithType(
+        uint256 indexed gameId,
+        address indexed winner,
+        uint8 winType
+    );
+
     /**
      * @dev Claim game master status
      * Anyone can become a game master by calling this function
@@ -88,11 +115,15 @@ contract SecretGameMaster {
      * @param _maxPlayers Maximum number of players
      * @param _minRange Minimum value for secret number range
      * @param _maxRange Maximum value for secret number range
+     * @param _maxGuessesPerPlayer Maximum guesses per player (1-10)
+     * @param _speedBonusThreshold First X correct guesses get speed bonus
      */
     function startGame(
         uint8 _maxPlayers,
         uint8 _minRange,
-        uint8 _maxRange
+        uint8 _maxRange,
+        uint8 _maxGuessesPerPlayer,
+        uint8 _speedBonusThreshold
     ) external {
         require(isGameMaster[msg.sender], "Not a game master");
         require(!hasActiveGame[msg.sender], "Already has an active game");
@@ -101,6 +132,14 @@ contract SecretGameMaster {
             "Max players must be between 2 and 10"
         );
         require(_minRange < _maxRange && _maxRange <= 255, "Invalid range");
+        require(
+            _maxGuessesPerPlayer >= 1 && _maxGuessesPerPlayer <= 10,
+            "Max guesses per player must be between 1 and 10"
+        );
+        require(
+            _speedBonusThreshold >= 1 && _speedBonusThreshold <= 5,
+            "Speed bonus threshold must be between 1 and 5"
+        );
 
         uint256 gameId = nextGameId++;
         Game storage game = games[gameId];
@@ -115,6 +154,15 @@ contract SecretGameMaster {
         game.totalGuesses = 0;
         game.gameWon = false;
         game.winner = address(0);
+
+        // Enhanced features initialization
+        game.maxGuessesPerPlayer = _maxGuessesPerPlayer;
+        game.winType = 0;
+        game.closestGuesser = address(0);
+        game.closestGuess = 0;
+        game.speedBonusThreshold = _speedBonusThreshold;
+        game.hintsGiven = 0;
+        game.gameStartTime = 0;
 
         // Generate invite code (simple hash-based)
         game.inviteCode = string(
@@ -164,6 +212,7 @@ contract SecretGameMaster {
 
         game.secretNumber = randomNumber;
         game.status = GameStatus.Active;
+        game.gameStartTime = block.timestamp;
 
         emit GameStarted(
             gameId,
@@ -234,10 +283,11 @@ contract SecretGameMaster {
             "Guess out of range"
         );
 
-        // Check if player has made too many guesses (max 3)
+        // Check if player has made too many guesses (custom limit)
         require(
-            game.playerSecretGuesses[msg.sender].length < 3,
-            "Maximum 3 guesses allowed per player"
+            game.playerSecretGuesses[msg.sender].length <
+                game.maxGuessesPerPlayer,
+            "Maximum guesses per player exceeded"
         );
 
         // Store guesses
@@ -252,12 +302,36 @@ contract SecretGameMaster {
             game.totalGuesses
         );
 
+        // Track closest guess for fallback winner
+        if (!game.gameWon) {
+            uint8 currentDistance = _secretNumberGuess > game.secretNumber
+                ? _secretNumberGuess - game.secretNumber
+                : game.secretNumber - _secretNumberGuess;
+
+            if (
+                game.closestGuesser == address(0) ||
+                currentDistance < game.closestGuess
+            ) {
+                game.closestGuesser = msg.sender;
+                game.closestGuess = currentDistance;
+            }
+        }
+
         // Check if this is a winning guess
         if (_secretNumberGuess == game.secretNumber && !game.gameWon) {
             game.gameWon = true;
             game.winner = msg.sender;
             game.status = GameStatus.Finished;
 
+            // Determine win type
+            if (game.totalGuesses <= game.speedBonusThreshold) {
+                game.winType = 3; // Speed bonus
+                emit SpeedBonus(_gameId, msg.sender, game.totalGuesses);
+            } else {
+                game.winType = 1; // Correct guess
+            }
+
+            emit GameWonWithType(_gameId, msg.sender, game.winType);
             emit GameWon(msg.sender, game.secretNumber, game.totalGuesses);
         }
     }
@@ -311,10 +385,25 @@ contract SecretGameMaster {
         // End the game
         game.status = GameStatus.Finished;
 
-        // If no winner, set a default winner (game master)
+        // If no winner, determine winner based on closest guess
         if (!game.gameWon) {
-            game.gameWon = true;
-            game.winner = msg.sender;
+            if (game.closestGuesser != address(0)) {
+                // Closest guess winner
+                game.gameWon = true;
+                game.winner = game.closestGuesser;
+                game.winType = 2; // Closest guess
+                emit ClosestGuessWinner(
+                    _gameId,
+                    game.closestGuesser,
+                    game.closestGuess,
+                    game.secretNumber
+                );
+            } else {
+                // No guesses made, game master wins
+                game.gameWon = true;
+                game.winner = msg.sender;
+                game.winType = 0; // Game master default
+            }
         }
 
         // Reset game master status
@@ -322,6 +411,48 @@ contract SecretGameMaster {
         gameMasterGameId[msg.sender] = 0;
 
         emit GameEnded(_gameId, msg.sender);
+    }
+
+    /**
+     * @dev Give a hint to players (only game master)
+     * @param _gameId The ID of the game
+     */
+    function giveHint(uint256 _gameId) external {
+        require(isGameMaster[msg.sender], "Not a game master");
+        require(hasActiveGame[msg.sender], "No active game");
+        require(gameMasterGameId[msg.sender] == _gameId, "Not your game");
+
+        Game storage game = games[_gameId];
+        require(game.status == GameStatus.Active, "Game not active");
+        require(game.hintsGiven < 3, "Maximum hints given");
+
+        game.hintsGiven++;
+        string memory hint;
+
+        if (game.hintsGiven == 1) {
+            hint = string(
+                abi.encodePacked(
+                    "The number is between ",
+                    uint2str(game.minRange),
+                    " and ",
+                    uint2str(game.maxRange)
+                )
+            );
+        } else if (game.hintsGiven == 2) {
+            if (game.secretNumber > (game.minRange + game.maxRange) / 2) {
+                hint = "The number is in the upper half of the range";
+            } else {
+                hint = "The number is in the lower half of the range";
+            }
+        } else {
+            if (game.secretNumber % 2 == 0) {
+                hint = "The number is even";
+            } else {
+                hint = "The number is odd";
+            }
+        }
+
+        emit HintGiven(_gameId, hint, game.hintsGiven);
     }
 
     // View functions
@@ -340,7 +471,14 @@ contract SecretGameMaster {
             address winner,
             bool gameWon,
             string memory inviteCode,
-            uint256 playerCount
+            uint256 playerCount,
+            uint8 maxGuessesPerPlayer,
+            uint8 winType,
+            address closestGuesser,
+            uint8 closestGuess,
+            uint8 speedBonusThreshold,
+            uint8 hintsGiven,
+            uint256 gameStartTime
         )
     {
         require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
@@ -356,7 +494,14 @@ contract SecretGameMaster {
             game.winner,
             game.gameWon,
             game.inviteCode,
-            game.players.length
+            game.players.length,
+            game.maxGuessesPerPlayer,
+            game.winType,
+            game.closestGuesser,
+            game.closestGuess,
+            game.speedBonusThreshold,
+            game.hintsGiven,
+            game.gameStartTime
         );
     }
 

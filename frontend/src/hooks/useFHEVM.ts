@@ -28,18 +28,18 @@ export function useFHEVM() {
 
             // Check if we're in browser environment
             if (typeof window === 'undefined') {
-                console.log('⚠️ Server-side rendering, using simulation mode');
+
                 setFhevmInstance({ initialized: true, simulationMode: true });
                 setIsFHEVMReady(true);
                 setError(null);
                 return;
             }
 
-            console.log('🚀 Initializing FHEVM with Zama Relayer SDK...');
+
 
             // Wait for dynamic imports to load
             if (!createInstance || !SepoliaConfig) {
-                console.log('⚠️ Relayer SDK not loaded, using simulation mode');
+
                 setFhevmInstance({ initialized: true, simulationMode: true });
                 setIsFHEVMReady(true);
                 setError(null);
@@ -49,14 +49,14 @@ export function useFHEVM() {
             // Initialize FHEVM instance with Relayer SDK using Sepolia config
             const instance = await createInstance(SepoliaConfig);
 
-            console.log('✅ FHEVM initialized successfully with Relayer SDK');
+
             setFhevmInstance(instance);
             setIsFHEVMReady(true);
             setError(null);
         } catch (err) {
             console.error('❌ FHEVM initialization failed:', err);
             // Fallback to simulation mode for tutorial purposes
-            console.log('⚠️ Falling back to simulation mode for tutorial');
+
             setFhevmInstance({ initialized: true, simulationMode: true });
             setIsFHEVMReady(true);
             setError(null);
@@ -64,7 +64,7 @@ export function useFHEVM() {
     };
 
     const encryptNumber = (number: number): string => {
-        console.log('🔐 encryptNumber called with:', { number, fhevmInstance: !!fhevmInstance });
+
 
         if (!fhevmInstance) {
             console.error('❌ FHEVM not initialized');
@@ -78,24 +78,24 @@ export function useFHEVM() {
 
         // Check if we're in simulation mode
         if (fhevmInstance.simulationMode) {
-            console.log(`🔐 Simulating encryption of number: ${number}`);
+
             const encrypted = `encrypted_${number}_${Date.now()}`;
             setLastEncryptedValue(encrypted);
             setLastDecryptedValue(number);
-            console.log('✅ Simulation encryption result:', encrypted);
+
             return encrypted;
         }
 
         try {
             // Use real FHEVM encryption with Relayer SDK
-            console.log(`🔐 Creating encrypted input for number: ${number}`);
+
             // For tutorial purposes, we'll create an encrypted input
             // In a real contract, this would be used with the contract address
             const encryptedInput = fhevmInstance.createEncryptedInput(
                 '0x0000000000000000000000000000000000000000', // Placeholder contract address
                 address || '0x0000000000000000000000000000000000000000'
             );
-            console.log('✅ Encrypted input created:', encryptedInput);
+
             return `encrypted_${number}_${Date.now()}`;
         } catch (err) {
             console.error('❌ Encryption failed, falling back to simulation:', err);
@@ -110,17 +110,17 @@ export function useFHEVM() {
 
         // Check if we're in simulation mode
         if (fhevmInstance.simulationMode) {
-            console.log(`🔓 Simulating decryption of: ${encryptedNumber}`);
+
             const match = encryptedNumber.match(/encrypted_(\d+)_/);
             return match ? parseInt(match[1]) : 0;
         }
 
         try {
             // Use real FHEVM decryption with Relayer SDK
-            console.log(`🔓 Attempting decryption with FHEVM: ${encryptedNumber}`);
+
             // For tutorial purposes, we'll simulate decryption
             // In a real contract, this would use publicDecrypt or userDecrypt
-            console.log('✅ FHEVM decryption attempted (simulated for tutorial)');
+
             const match = encryptedNumber.match(/encrypted_(\d+)_/);
             return match ? parseInt(match[1]) : 0;
         } catch (err) {
@@ -131,13 +131,13 @@ export function useFHEVM() {
     };
 
     useEffect(() => {
-        console.log('🔄 FHEVM useEffect triggered:', { address: !!address, isFHEVMReady, fhevmInstance: !!fhevmInstance });
+
 
         if (address && !isFHEVMReady) {
-            console.log('🚀 Initializing FHEVM for address:', address);
+
             initializeFHEVM();
         } else if (!address) {
-            console.log('⚠️ No address, resetting FHEVM state');
+
             setIsFHEVMReady(false);
             setFhevmInstance(null);
             setError(null);

@@ -7,12 +7,12 @@ import { GameHeader } from '@/components/GameHeader';
 import { GameStatus } from '@/components/GameStatus';
 import { GameMasterPanel } from '@/components/GameMasterPanel';
 import { EnhancedPlayerPanel } from '@/components/EnhancedPlayerPanel';
-import { ContractDebug } from '@/components/ContractDebug';
 import { GameModeSelector } from '@/components/GameModeSelector';
 import { PublicGamesList } from '@/components/PublicGamesList';
 import { SimpleWalletConnect } from '@/components/SimpleWalletConnect';
 import { DynamicGamesList } from '@/components/DynamicGamesList';
 import { ParticipantGameInterface } from '@/components/ParticipantGameInterface';
+import { GameHistory } from '@/components/GameHistory';
 import { useGameMaster } from '@/hooks/useGameMaster';
 
 export default function Home() {
@@ -39,56 +39,35 @@ export default function Home() {
     const [gameMode, setGameMode] = useState<'selector' | 'master' | 'player' | 'public-games' | 'participant-game'>('selector');
     const [selectedGameId, setSelectedGameId] = useState<number>(0);
 
-    // Debug Game Master state
-    console.log('🔍 Game Master State:', {
-        isGameMaster,
-        hasActiveGame,
-        currentGameId,
-        gameInfo,
-        isLoading,
-        error
-    });
 
     // Game mode handlers
     const handleStartAsGameMaster = () => {
-        console.log('🎮 Starting as Game Master', {
-            address,
-            isGameMaster,
-            hasActiveGame,
-            currentGameId
-        });
         setGameMode('master');
-        // Force a refresh of game data to ensure we're in the right state
+        setSelectedGameId(0); // Reset selected game ID
+        // Force a small delay to ensure state is cleared before rendering
         setTimeout(() => {
-            console.log('🔄 Game mode changed to master, refreshing...');
+            // This ensures we start fresh
         }, 100);
     };
 
     const handleJoinGame = () => {
-        console.log('🎮 Joining existing game');
         setGameMode('public-games');
     };
 
     const handleJoinWithInvite = (inviteCode: string) => {
-        console.log('🎮 Joining with invite code:', inviteCode);
         setGameMode('player');
+        setSelectedGameId(0); // Reset selected game ID
         // TODO: Handle invite code logic
     };
 
     const handleJoinPublicGame = (gameId: string) => {
-        console.log('🎮 Joining public game:', gameId);
         setSelectedGameId(parseInt(gameId));
         setGameMode('participant-game');
     };
 
     const handleJoinSelectedGame = useCallback((gameId: number) => {
-        console.log('🎮 Joining game:', gameId);
-        console.log('🎮 Setting selectedGameId to:', gameId);
-        console.log('🎮 Setting gameMode to: participant-game');
-
         // Prevent unnecessary updates if already in the same state
         if (selectedGameId === gameId && gameMode === 'participant-game') {
-            console.log('🎮 Already in correct state, skipping update');
             return;
         }
 
@@ -97,27 +76,15 @@ export default function Home() {
     }, [selectedGameId, gameMode]);
 
     const handleBackToPublicGames = useCallback(() => {
-        console.log('🎮 Going back to public games');
         setGameMode('public-games');
         setSelectedGameId(0);
     }, []);
 
     const handleBackToSelector = useCallback(() => {
-        console.log('🎮 Going back to selector');
         setGameMode('selector');
+        setSelectedGameId(0); // Reset selected game ID
     }, []);
 
-    // Debug game status changes
-    useEffect(() => {
-        console.log('🎮 Game Status Changed:', {
-            gameInfo,
-            address,
-            isGameMaster,
-            hasActiveGame,
-            currentGameId,
-            gameMode
-        });
-    }, [gameInfo, address, isGameMaster, hasActiveGame, currentGameId, gameMode]);
 
     // Listen for custom navigation events
     useEffect(() => {
@@ -191,10 +158,6 @@ export default function Home() {
                                 <span className="text-green-500">✅</span>
                                 <span>Complete tutorial documentation</span>
                             </div>
-                            <div className="flex items-center space-x-2">
-                                <span className="text-green-500">✅</span>
-                                <span>Ready for Zama Bounty Program</span>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -214,7 +177,7 @@ export default function Home() {
     }
 
     return (
-        <div className="min-h-screen gradient-bg py-8">
+        <div className="min-h-screen game-bg py-8">
             <div className="max-w-6xl mx-auto px-4 space-y-8">
                 <GameHeader />
 
@@ -258,24 +221,14 @@ export default function Home() {
                                 </div>
                             )
                         ) : (() => {
-                            console.log('🎮 Panel Logic Check:', {
-                                address,
-                                isGameMaster,
-                                hasActiveGame,
-                                currentGameId,
-                                gameMode
-                            });
-
                             // Show game master panel if:
-                            // 1. User is a game master, OR
-                            // 2. Game mode is set to 'master'
-                            const shouldShowGameMaster = isGameMaster || gameMode === 'master';
+                            // 1. User is a game master AND has an active game, OR
+                            // 2. Game mode is explicitly set to 'master'
+                            const shouldShowGameMaster = (isGameMaster && hasActiveGame && gameInfo?.status === 1) || gameMode === 'master';
 
                             if (shouldShowGameMaster) {
-                                console.log('✅ Showing Game Master Panel');
                                 return <GameMasterPanel />;
                             } else {
-                                console.log('👤 Showing Player Panel');
                                 return <EnhancedPlayerPanel />;
                             }
                         })()}
@@ -292,31 +245,15 @@ export default function Home() {
                             </div>
                         )}
 
-                        {/* Contract Debug Info */}
-                        <ContractDebug />
 
-                        {/* Debug Info */}
-                        <div className="card">
-                            <h3 className="text-lg font-semibold mb-2">🔧 Debug Info</h3>
-                            <div className="text-xs space-y-1 text-gray-600">
-                                <p>Address: {address || 'Not connected'}</p>
-                                <p>Is Game Master: {isGameMaster ? 'Yes' : 'No'}</p>
-                                <p>Has Active Game: {hasActiveGame ? 'Yes' : 'No'}</p>
-                                <p>Current Game ID: {currentGameId || 'None'}</p>
-                                <p>Selected Game ID: {selectedGameId || 'None'}</p>
-                                <p>Game Status: {gameInfo?.status || 'No game'}</p>
-                                <p>Has Joined: {hasJoined ? 'Yes' : 'No'}</p>
-                                <p>Can Make Guess: {canMakeGuess ? 'Yes' : 'No'}</p>
-                                <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
-                                <p>Game Mode: {gameMode}</p>
-                                {error && <p className="text-red-600">Error: {error}</p>}
-                            </div>
-                        </div>
                     </div>
 
                     <div className="space-y-6">
+                        {/* Game History */}
+                        <GameHistory />
+
                         {/* Game Master Features Info */}
-                        <div className="card">
+                        <div className="card-gradient">
                             <h3 className="text-lg font-semibold mb-4">🎮 Game Master Features</h3>
                             <div className="grid md:grid-cols-2 gap-4 text-sm">
                                 <div>

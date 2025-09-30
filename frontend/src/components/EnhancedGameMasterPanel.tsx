@@ -60,7 +60,7 @@ export function EnhancedGameMasterPanel() {
             setIsLoading(true);
             setError(null);
             await startGame(maxPlayersNum, minRangeNum, maxRangeNum);
-            console.log('✅ Enhanced game started successfully');
+
         } catch (err) {
             console.error('Failed to start enhanced game:', err);
             setError(err instanceof Error ? err.message : 'Failed to start game');
@@ -74,7 +74,7 @@ export function EnhancedGameMasterPanel() {
             setIsLoading(true);
             setError(null);
             await resetGame();
-            console.log('✅ Enhanced game reset successfully');
+
         } catch (err) {
             console.error('Failed to reset enhanced game:', err);
             setError(err instanceof Error ? err.message : 'Failed to reset game');
@@ -90,7 +90,7 @@ export function EnhancedGameMasterPanel() {
                 <div className="text-center text-gray-600">
                     <p>You are not the Game Master.</p>
                     <p className="text-sm mt-2">
-                        Game Master: <span className="font-mono">{gameMaster}</span>
+                        Game Master: <span className="font-mono">{gameMaster?.slice(0, 6)}...{gameMaster?.slice(-4)}</span>
                     </p>
                 </div>
             </div>

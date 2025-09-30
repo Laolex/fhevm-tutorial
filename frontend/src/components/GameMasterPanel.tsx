@@ -31,6 +31,8 @@ export function GameMasterPanel() {
     const [maxPlayersInput, setMaxPlayersInput] = useState<string>('5');
     const [minRangeInput, setMinRangeInput] = useState<string>('1');
     const [maxRangeInput, setMaxRangeInput] = useState<string>('100');
+    const [maxGuessesInput, setMaxGuessesInput] = useState<string>('3');
+    const [speedBonusInput, setSpeedBonusInput] = useState<string>('3');
     const [localIsLoading, setLocalIsLoading] = useState(false);
     const [localError, setLocalError] = useState<string | null>(null);
 
@@ -47,7 +49,7 @@ export function GameMasterPanel() {
             }
 
             await claimGameMaster();
-            console.log('✅ Game master status claimed successfully');
+
         } catch (err) {
             console.error('Failed to claim game master:', err);
             setLocalError(err instanceof Error ? err.message : 'Failed to claim game master');
@@ -58,7 +60,7 @@ export function GameMasterPanel() {
 
     // Handle starting a new game
     const handleStartGame = async () => {
-        if (!maxPlayersInput || !minRangeInput || !maxRangeInput) {
+        if (!maxPlayersInput || !minRangeInput || !maxRangeInput || !maxGuessesInput || !speedBonusInput) {
             setLocalError('Please fill in all fields');
             return;
         }
@@ -66,6 +68,8 @@ export function GameMasterPanel() {
         const maxPlayersNum = parseInt(maxPlayersInput);
         const minRangeNum = parseInt(minRangeInput);
         const maxRangeNum = parseInt(maxRangeInput);
+        const maxGuessesNum = parseInt(maxGuessesInput);
+        const speedBonusNum = parseInt(speedBonusInput);
 
         if (maxPlayersNum < 2 || maxPlayersNum > 10) {
             setLocalError('Max players must be between 2 and 10');
@@ -82,11 +86,21 @@ export function GameMasterPanel() {
             return;
         }
 
+        if (maxGuessesNum < 1 || maxGuessesNum > 10) {
+            setLocalError('Max guesses per player must be between 1 and 10');
+            return;
+        }
+
+        if (speedBonusNum < 1 || speedBonusNum > 5) {
+            setLocalError('Speed bonus threshold must be between 1 and 5');
+            return;
+        }
+
         try {
             setLocalIsLoading(true);
             setLocalError(null);
-            await startGame(maxPlayersNum, minRangeNum, maxRangeNum);
-            console.log('✅ Game started successfully');
+            await startGame(maxPlayersNum, minRangeNum, maxRangeNum, maxGuessesNum, speedBonusNum);
+
         } catch (err) {
             console.error('Failed to start game:', err);
             setLocalError(err instanceof Error ? err.message : 'Failed to start game');
@@ -101,7 +115,7 @@ export function GameMasterPanel() {
             setLocalIsLoading(true);
             setLocalError(null);
             await activateGame();
-            console.log('✅ Game activated successfully');
+
         } catch (err) {
             console.error('Failed to activate game:', err);
             setLocalError(err instanceof Error ? err.message : 'Failed to activate game');
@@ -116,7 +130,7 @@ export function GameMasterPanel() {
             setLocalIsLoading(true);
             setLocalError(null);
             await endGame(currentGameId);
-            console.log('✅ Game ended successfully');
+
         } catch (err) {
             console.error('Failed to end game:', err);
             setLocalError(err instanceof Error ? err.message : 'Failed to end game');
@@ -130,7 +144,7 @@ export function GameMasterPanel() {
             setLocalIsLoading(true);
             setLocalError(null);
             await resetGame(currentGameId);
-            console.log('✅ Game reset successfully');
+
         } catch (err) {
             console.error('Failed to reset game:', err);
             setLocalError(err instanceof Error ? err.message : 'Failed to reset game');
@@ -160,7 +174,7 @@ export function GameMasterPanel() {
     // If user is not a game master, show claim button
     if (!isGameMaster) {
         return (
-            <div className="card">
+            <div className="card-gradient">
                 <div className="text-center">
                     <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Crown className="w-8 h-8 text-blue-600" />
@@ -183,7 +197,7 @@ export function GameMasterPanel() {
 
                         <button
                             onClick={() => {
-                                console.log('🔄 Manual refresh triggered');
+
                                 // Force refresh the game master status
                                 window.location.reload();
                             }}
@@ -218,7 +232,7 @@ export function GameMasterPanel() {
     // If user is game master but has no active game, show game creation form
     if (isGameMaster && !hasActiveGame) {
         return (
-            <div className="card">
+            <div className="card-gradient">
                 <div className="text-center mb-6">
                     <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Settings className="w-8 h-8 text-green-600" />
@@ -277,6 +291,37 @@ export function GameMasterPanel() {
                         </div>
                     </div>
 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Max Guesses Per Player (1-10)
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={maxGuessesInput}
+                                onChange={(e) => setMaxGuessesInput(e.target.value)}
+                                className="input w-full"
+                                placeholder="3"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Speed Bonus Threshold (1-5)
+                            </label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="5"
+                                value={speedBonusInput}
+                                onChange={(e) => setSpeedBonusInput(e.target.value)}
+                                className="input w-full"
+                                placeholder="3"
+                            />
+                        </div>
+                    </div>
+
                     <button
                         onClick={handleStartGame}
                         disabled={localIsLoading || isLoading}
@@ -298,7 +343,7 @@ export function GameMasterPanel() {
 
     // If user has an active game, show game management panel
     return (
-        <div className="card">
+        <div className="card-gradient">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">

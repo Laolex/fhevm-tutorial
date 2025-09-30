@@ -20,7 +20,7 @@ export default function TestPage() {
     const handleStartGame = async () => {
         try {
             await startGame(3, 1, 50); // 3 players, range 1-50
-            console.log('✅ Game started successfully!');
+
         } catch (error) {
             console.error('❌ Failed to start game:', error);
         }

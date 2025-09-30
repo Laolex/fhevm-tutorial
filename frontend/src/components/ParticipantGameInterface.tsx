@@ -36,7 +36,7 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
     // Only update when gameId actually changes
     useEffect(() => {
         if (gameId !== lastGameId) {
-            console.log('🎮 Game ID changed from', lastGameId, 'to', gameId);
+
             setLastGameId(gameId);
             setIsPlayerMode(true);
             setIsInitialized(true);
@@ -101,19 +101,19 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
     // Refresh game info when component mounts or gameId changes
     useEffect(() => {
         if (gameId > 0) {
-            console.log('🎮 ParticipantGameInterface: Loading game ID', gameId);
-            console.log('🎮 Current gameInfo state:', gameInfo);
-            console.log('🎮 Current isLoading state:', isLoading);
+
+
+
             // Add a small delay to prevent rapid calls
             const timeoutId = setTimeout(() => {
-                console.log('🔄 Calling refreshGameInfo for game', gameId);
+
                 refreshGameInfo(gameId);
                 fetchGuessCount();
             }, 100);
 
             return () => clearTimeout(timeoutId);
         } else {
-            console.log('❌ ParticipantGameInterface: Invalid game ID', gameId);
+
         }
     }, [gameId, refreshGameInfo, fetchGuessCount]);
 
@@ -146,22 +146,53 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
     // Auto-end game when all players have made maximum guesses
     useEffect(() => {
         if (gameInfo && gameInfo.status === 1 && !gameInfo.gameWon && players.length > 0) {
-            const maxGuessesPerPlayer = 3;
+            const maxGuessesPerPlayer = gameInfo.maxGuessesPerPlayer || 3;
             const totalPossibleGuesses = players.length * maxGuessesPerPlayer;
 
-            if (gameInfo.totalGuesses >= totalPossibleGuesses) {
-                console.log('🎮 All players have made maximum guesses, auto-ending game...');
+            // Check if we should auto-end the game
+            // Only auto-end if:
+            // 1. We've reached the theoretical maximum guesses
+            // 2. All players have joined (or game is full)
+            // 3. Game has been active for at least 30 seconds (to allow players to join)
+            const gameActiveTime = Date.now() - (gameInfo.gameStartTime * 1000);
+            const shouldAutoEnd = gameInfo.totalGuesses >= totalPossibleGuesses && 
+                                 gameInfo.playerCount >= gameInfo.maxPlayers &&
+                                 gameActiveTime > 30000; // 30 seconds
+
+            if (shouldAutoEnd) {
                 // Show notification that game will end
                 setNotificationMessage('🎯 All players have made their maximum guesses! Game will end automatically.');
                 setShowNotification(true);
                 setTimeout(() => setShowNotification(false), 5000);
 
                 // Auto-end the game after a short delay
-                setTimeout(() => {
+                setTimeout(async () => {
                     if (address && gameInfo.gameMaster?.toLowerCase() === address.toLowerCase()) {
-                        endGame(gameId);
+                        try {
+                            await endGame(gameId);
+                            
+                            // Add game to history after auto-ending
+                            const gameHistoryItem = {
+                                gameId: gameId,
+                                gameMaster: gameInfo.gameMaster,
+                                winner: gameInfo.winner || gameInfo.closestGuesser || 'No Winner',
+                                totalGuesses: gameInfo.totalGuesses,
+                                maxPlayers: gameInfo.maxPlayers,
+                                playerCount: gameInfo.playerCount,
+                                winType: gameInfo.winType || 2, // Default to closest guess for auto-ended games
+                                completedAt: Date.now(),
+                                range: { min: gameInfo.minRange, max: gameInfo.maxRange }
+                            };
+
+                            // Add to history using the global function
+                            if ((window as any).addGameToHistory) {
+                                (window as any).addGameToHistory(gameHistoryItem);
+                            }
+                        } catch (error) {
+                            console.error('Failed to auto-end game:', error);
+                        }
                     }
-                }, 2000);
+                }, 3000); // Increased delay to 3 seconds
             }
         }
     }, [gameInfo, players.length, address, gameId, endGame]);
@@ -172,12 +203,12 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
             try {
                 setIsJoining(true);
                 setError(null);
-                console.log('🎮 Attempting to join game:', gameId);
+
                 await joinGame(gameId);
-                console.log('✅ Successfully joined game, refreshing info...');
+
                 // Refresh game info after joining
                 await refreshGameInfo(gameId);
-                console.log('🔄 Game info refreshed after joining');
+
             } catch (err) {
                 console.error('❌ Failed to join game:', err);
                 setError(err instanceof Error ? err.message : 'Failed to join game');
@@ -238,7 +269,27 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
             setIsEnding(true);
             setError(null);
             await endGame(gameId);
-            console.log('✅ Game ended successfully');
+
+            // Add game to history if it was won
+            if (gameInfo && gameInfo.gameWon && gameInfo.winner) {
+                const gameHistoryItem = {
+                    gameId: gameId,
+                    gameMaster: gameInfo.gameMaster,
+                    winner: gameInfo.winner,
+                    totalGuesses: gameInfo.totalGuesses,
+                    maxPlayers: gameInfo.maxPlayers,
+                    playerCount: gameInfo.playerCount,
+                    winType: gameInfo.winType || 1,
+                    completedAt: Date.now(),
+                    range: { min: gameInfo.minRange, max: gameInfo.maxRange }
+                };
+
+                // Add to history using the global function
+                if ((window as any).addGameToHistory) {
+                    (window as any).addGameToHistory(gameHistoryItem);
+                }
+            }
+
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to end game');
         } finally {
@@ -260,7 +311,7 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
                     <div className="mt-4 space-y-2">
                         <button
                             onClick={() => {
-                                console.log('🔄 Manual refresh triggered for game', gameId);
+
                                 refreshGameInfo(gameId);
                             }}
                             className="btn-outline"
@@ -269,7 +320,7 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
                         </button>
                         <button
                             onClick={() => {
-                                console.log('🔄 Force refresh with delay');
+
                                 setTimeout(() => refreshGameInfo(gameId), 1000);
                             }}
                             className="btn-secondary"
@@ -458,7 +509,7 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
                         Make two predictions:
                     </p>
                     <p className="text-sm text-blue-600 mb-4">
-                        Guesses made: {guessCount}/3
+                        Guesses made: {guessCount}/{gameInfo?.maxGuessesPerPlayer || 3}
                     </p>
 
                     <div className="space-y-4">
@@ -493,7 +544,7 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
 
                         <button
                             onClick={handleMakeGuess}
-                            disabled={isSubmitting || !secretGuess || !totalGuess || guessCount >= 3}
+                            disabled={isSubmitting || !secretGuess || !totalGuess || guessCount >= (gameInfo?.maxGuessesPerPlayer || 3)}
                             className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isSubmitting ? (
@@ -501,11 +552,11 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
                             ) : (
                                 <Target className="w-5 h-5" />
                             )}
-                            <span>{guessCount >= 3 ? 'Guess Limit Reached' : 'Submit Guess'}</span>
+                            <span>{guessCount >= (gameInfo?.maxGuessesPerPlayer || 3) ? 'Guess Limit Reached' : 'Submit Guess'}</span>
                         </button>
-                        {guessCount >= 3 && (
+                        {guessCount >= (gameInfo?.maxGuessesPerPlayer || 3) && (
                             <p className="text-sm text-red-600 mt-2 text-center">
-                                You have reached the maximum of 3 guesses per game.
+                                You have reached the maximum of {gameInfo?.maxGuessesPerPlayer || 3} guesses per game.
                             </p>
                         )}
                     </div>

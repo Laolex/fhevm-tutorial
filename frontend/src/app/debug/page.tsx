@@ -10,18 +10,18 @@ export default function DebugPage() {
 
     const testContract = async () => {
         if (!publicClient || !contractAddress) {
-            console.log('No public client or contract address');
+
             return;
         }
 
         try {
-            console.log('Testing contract access...');
+
             const gameMaster = await publicClient.readContract({
                 address: contractAddress,
                 abi: ['function gameMaster() view returns (address)'],
                 functionName: 'gameMaster'
             });
-            console.log('Game Master:', gameMaster);
+
         } catch (error) {
             console.error('Contract access error:', error);
         }

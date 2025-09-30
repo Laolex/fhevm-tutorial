@@ -274,17 +274,17 @@ export function useEnhancedFHEVM() {
         try {
             if (typeof window === 'undefined') return;
 
-            console.log('🔐 Initializing FHEVM with Zama Relayer SDK...');
+
 
             if (!contractAddress) {
-                console.log('⚠️ No contract address available, using simulation mode');
+
                 setIsFHEVMReady(true);
                 return;
             }
 
             // For now, use simulation mode since Zama Relayer SDK has import issues
             // In a production environment, you would use the real FHEVM SDK
-            console.log('🔄 Using simulation mode for demo purposes');
+
             setIsFHEVMReady(true);
 
             // Simulate FHEVM instance
@@ -296,10 +296,10 @@ export function useEnhancedFHEVM() {
             };
             setFhevmInstance(mockInstance);
 
-            console.log('✅ FHEVM simulation mode initialized successfully');
+
         } catch (err) {
             console.error('Failed to initialize FHEVM:', err);
-            console.log('🔄 Falling back to simulation mode');
+
             setIsFHEVMReady(true); // Allow simulation mode
         }
     }, [contractAddress]);
@@ -308,14 +308,14 @@ export function useEnhancedFHEVM() {
     const encryptNumber = useCallback(async (number: number): Promise<string> => {
         try {
             if (!fhevmInstance || !contractAddress) {
-                console.log('🔄 FHEVM not available, using simulation');
+
                 const simulated = `simulated_encrypted_${number}`;
                 setLastEncryptedValue(simulated);
                 setLastDecryptedValue(number.toString());
                 return simulated;
             }
 
-            console.log('🔐 Encrypting number:', number);
+
 
             // Create encrypted input using the proper FHEVM API
             const encryptedInput = await fhevmInstance.createEncryptedInput(contractAddress, number);
@@ -324,7 +324,7 @@ export function useEnhancedFHEVM() {
             setLastEncryptedValue(encryptedHex);
             setLastDecryptedValue(number.toString());
 
-            console.log('✅ Number encrypted successfully');
+
             return encryptedHex;
         } catch (err) {
             console.error('Failed to encrypt number:', err);
@@ -347,7 +347,7 @@ export function useEnhancedFHEVM() {
 
         // If in offline mode, use demo data
         if (isOfflineMode) {
-            console.log('🔄 Using offline demo data');
+
             setGameMaster(process.env.NEXT_PUBLIC_DEFAULT_GAME_MASTER || '0x0000000000000000000000000000000000000000');
             setGameId('1');
             setGameStatus(1); // Active game
@@ -477,15 +477,15 @@ export function useEnhancedFHEVM() {
             // Handle different types of errors with specific categorization
             if (err instanceof Error) {
                 if (err.message.includes('timeout') || err.message.includes('Contract call timeout')) {
-                    console.log('🔄 Network timeout detected - switching to offline demo mode');
+
                     setIsOfflineMode(true);
                     setError('Network timeout - using demo mode for testing');
                 } else if (err.message.includes('Internal error') || err.message.includes('execution reverted')) {
-                    console.log('🔄 Contract execution error - switching to offline demo mode');
+
                     setIsOfflineMode(true);
                     setError('Contract error - using demo mode for testing');
                 } else if (err.message.includes('network') || err.message.includes('connection')) {
-                    console.log('🔄 Network connection issues - switching to offline demo mode');
+
                     setIsOfflineMode(true);
                     setError('Network connection issues - using demo mode for testing');
                 } else if (err.message.includes('user rejected') || err.message.includes('User denied')) {
@@ -520,7 +520,7 @@ export function useEnhancedFHEVM() {
     }, [contract, publicClient, address, contractAddress]);
 
     const startGame = async (maxPlayers: number, minRange: number, maxRange: number) => {
-        console.log('🎮 Starting enhanced game:', { maxPlayers, minRange, maxRange });
+
 
         if (!contract || !walletClient || !address) {
             throw new Error('Contract or wallet not available');
@@ -537,7 +537,7 @@ export function useEnhancedFHEVM() {
                 args: [maxPlayers, minRange, maxRange]
             });
 
-            console.log('✅ Enhanced game started, transaction hash:', hash);
+
 
             await publicClient.waitForTransactionReceipt({ hash });
             await fetchGameData();
@@ -551,7 +551,7 @@ export function useEnhancedFHEVM() {
     };
 
     const joinGame = async () => {
-        console.log('🎮 Joining enhanced game...');
+
 
         if (!contract || !walletClient || !address) {
             throw new Error('Contract or wallet not available');
@@ -567,7 +567,7 @@ export function useEnhancedFHEVM() {
                 functionName: 'joinGame'
             });
 
-            console.log('✅ Joined enhanced game, transaction hash:', hash);
+
 
             await publicClient.waitForTransactionReceipt({ hash });
             await fetchGameData();
@@ -581,7 +581,7 @@ export function useEnhancedFHEVM() {
     };
 
     const makeGuess = async (totalGuessPrediction: number, secretNumberGuess: number) => {
-        console.log('🎯 Making enhanced dual guess:', { totalGuessPrediction, secretNumberGuess });
+
 
         if (!contract || !walletClient || !address) {
             throw new Error('Contract or wallet not available');
@@ -599,7 +599,7 @@ export function useEnhancedFHEVM() {
                 args: [totalGuessPrediction, secretNumberGuess]
             });
 
-            console.log('✅ Enhanced dual guess made, transaction hash:', hash);
+
 
             await publicClient.waitForTransactionReceipt({ hash });
             await fetchGameData();
@@ -613,7 +613,7 @@ export function useEnhancedFHEVM() {
     };
 
     const resetGame = async () => {
-        console.log('🔄 Resetting enhanced game...');
+
 
         if (!contract || !walletClient || !address) {
             throw new Error('Contract or wallet not available');
@@ -629,7 +629,7 @@ export function useEnhancedFHEVM() {
                 functionName: 'resetGame'
             });
 
-            console.log('✅ Enhanced game reset, transaction hash:', hash);
+
 
             await publicClient.waitForTransactionReceipt({ hash });
             await fetchGameData();

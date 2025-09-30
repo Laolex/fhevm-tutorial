@@ -21,7 +21,7 @@ export function GameModeSelector({ onStartAsGameMaster, onJoinGame, onJoinWithIn
     };
 
     return (
-        <div className="card animate-slide-up">
+        <div className="card-glass animate-slide-up">
             <div className="text-center mb-6">
                 <h2 className="text-3xl font-bold text-gradient mb-3 flex items-center justify-center space-x-3">
                     <Gamepad2 className="w-10 h-10 animate-pulse-slow" />

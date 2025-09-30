@@ -79,7 +79,7 @@ export function PlayerPanel() {
             setLocalIsLoading(true);
             setLocalError(null);
 
-            console.log('🎯 Player making guess:', { guess: number, totalGuesses });
+
 
             const encryptedGuess = encryptNumber(number);
             await makeGuess(encryptedGuess, number);

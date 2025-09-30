@@ -27,7 +27,9 @@ const GAME_MASTER_ABI = [
         "inputs": [
             { "name": "_maxPlayers", "type": "uint8" },
             { "name": "_minRange", "type": "uint8" },
-            { "name": "_maxRange", "type": "uint8" }
+            { "name": "_maxRange", "type": "uint8" },
+            { "name": "_maxGuessesPerPlayer", "type": "uint8" },
+            { "name": "_speedBonusThreshold", "type": "uint8" }
         ],
         "outputs": [],
         "stateMutability": "nonpayable"
@@ -117,7 +119,14 @@ const GAME_MASTER_ABI = [
             { "name": "winner", "type": "address" },
             { "name": "gameWon", "type": "bool" },
             { "name": "inviteCode", "type": "string" },
-            { "name": "playerCount", "type": "uint256" }
+            { "name": "playerCount", "type": "uint256" },
+            { "name": "maxGuessesPerPlayer", "type": "uint8" },
+            { "name": "winType", "type": "uint8" },
+            { "name": "closestGuesser", "type": "address" },
+            { "name": "closestGuess", "type": "uint8" },
+            { "name": "speedBonusThreshold", "type": "uint8" },
+            { "name": "hintsGiven", "type": "uint8" },
+            { "name": "gameStartTime", "type": "uint256" }
         ],
         "stateMutability": "view"
     },
@@ -239,7 +248,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
     const now = Date.now();
     const throttleTime = isPlayerMode ? 2000 : 1000; // 2 seconds for players, 1 second for game masters
     if (lastHookCallTime && now - lastHookCallTime < throttleTime) {
-        console.log(`⏳ Throttling useGameMaster hook call (${isPlayerMode ? 'player' : 'game master'} mode)`);
+
         // Return cached values or minimal state
         return {
             isLoading: false,
@@ -287,7 +296,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
         lastDebugState.walletClient !== currentDebugState.walletClient ||
         lastDebugState.address !== currentDebugState.address ||
         lastDebugState.hasPublicClient !== currentDebugState.hasPublicClient) {
-        console.log('🔧 Wallet Client Debug:', currentDebugState);
+
         setLastDebugState(currentDebugState);
     }
 
@@ -312,6 +321,13 @@ export function useGameMaster(isPlayerMode: boolean = false) {
         gameWon: boolean;
         inviteCode: string;
         playerCount: number;
+        maxGuessesPerPlayer: number;
+        winType: number; // 1=correct guess, 2=closest guess, 3=speed bonus
+        closestGuesser: string;
+        closestGuess: number;
+        speedBonusThreshold: number;
+        hintsGiven: number;
+        gameStartTime: number;
     } | null>(null);
 
     const [players, setPlayers] = useState<string[]>([]);
@@ -338,13 +354,13 @@ export function useGameMaster(isPlayerMode: boolean = false) {
     // Fetch user's game master status
     const fetchGameMasterStatus = useCallback(async () => {
         if (!contract || !contractAddress) {
-            console.log('❌ Cannot fetch game master status:', { contract: !!contract, contractAddress });
+
             return;
         }
 
         // Skip game master status fetching for players
         if (isPlayerMode) {
-            console.log('🎮 Player mode: skipping game master status fetch');
+
             return;
         }
 
@@ -355,7 +371,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 const accounts = await window.ethereum.request({ method: 'eth_accounts' });
                 if (accounts && accounts.length > 0) {
                     currentAddress = accounts[0];
-                    console.log('🔍 Found connected address from MetaMask:', currentAddress);
+
                 }
             } catch (err) {
                 console.error('Failed to get accounts from MetaMask:', err);
@@ -363,12 +379,12 @@ export function useGameMaster(isPlayerMode: boolean = false) {
         }
 
         if (!currentAddress) {
-            console.log('❌ No connected address found');
+
             return;
         }
 
         try {
-            console.log('🔍 Fetching game master status for:', currentAddress);
+
 
             const [isGM, hasActive, gameId] = await Promise.all([
                 publicClient.readContract({
@@ -431,20 +447,20 @@ export function useGameMaster(isPlayerMode: boolean = false) {
     // Fetch game info with debouncing
     const fetchGameInfo = useCallback(async (gameId: number) => {
         if (!contract || gameId <= 0) {
-            console.log('❌ Cannot fetch game info:', { contract: !!contract, gameId });
+
             return;
         }
 
         // Debounce rapid successive calls
         const now = Date.now();
         if (lastFetchTime && now - lastFetchTime < 2000) { // 2 second debounce
-            console.log('⏳ Debouncing fetchGameInfo call');
+
             return;
         }
         lastFetchTime = now;
 
         try {
-            console.log('🔍 Fetching game info for game ID:', gameId);
+
 
             // Add timeout to prevent hanging requests
             const timeoutPromise = new Promise((_, reject) =>
@@ -452,7 +468,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
             );
 
             // First check if the game exists by getting basic info
-            console.log('📡 Calling getGameInfo with args:', { contractAddress, gameId: BigInt(gameId) });
+
             const gameInfoResult = await Promise.race([
                 publicClient.readContract({
                     address: contractAddress,
@@ -462,10 +478,10 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 }),
                 timeoutPromise
             ]);
-            console.log('✅ getGameInfo result:', gameInfoResult);
+
 
             // If we get here, the game exists, now get players
-            console.log('📡 Calling getPlayers with args:', { contractAddress, gameId: BigInt(gameId) });
+
             const playersResult = await Promise.race([
                 publicClient.readContract({
                     address: contractAddress,
@@ -475,7 +491,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 }),
                 timeoutPromise
             ]);
-            console.log('✅ getPlayers result:', playersResult);
+
 
             const [
                 gameMaster,
@@ -487,8 +503,15 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 winner,
                 gameWon,
                 inviteCode,
-                playerCount
-            ] = gameInfoResult as readonly [string, number, number, number, number, number, string, boolean, string, bigint];
+                playerCount,
+                maxGuessesPerPlayer,
+                winType,
+                closestGuesser,
+                closestGuess,
+                speedBonusThreshold,
+                hintsGiven,
+                gameStartTime
+            ] = gameInfoResult as readonly [string, number, number, number, number, number, string, boolean, string, bigint, number, number, string, number, number, number, bigint];
 
             setGameInfo({
                 gameMaster,
@@ -500,7 +523,14 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 winner,
                 gameWon,
                 inviteCode,
-                playerCount: Number(playerCount)
+                playerCount: Number(playerCount),
+                maxGuessesPerPlayer,
+                winType,
+                closestGuesser,
+                closestGuess,
+                speedBonusThreshold,
+                hintsGiven,
+                gameStartTime: Number(gameStartTime)
             });
 
             setPlayers(playersResult as string[]);
@@ -595,7 +625,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 const accounts = await window.ethereum.request({ method: 'eth_accounts' });
                 if (accounts && accounts.length > 0) {
                     currentAddress = accounts[0];
-                    console.log('🔍 Found connected address for claim:', currentAddress);
+
                 }
             } catch (err) {
                 console.error('Failed to get accounts from MetaMask:', err);
@@ -615,12 +645,12 @@ export function useGameMaster(isPlayerMode: boolean = false) {
             setIsLoading(true);
             setError(null);
 
-            console.log('🎮 Claiming game master status...', { contractAddress, currentAddress });
+
 
             let hash: string;
 
             if (walletClient) {
-                console.log('🎯 Using wagmi wallet client');
+
                 // Use wagmi wallet client
                 hash = await walletClient.writeContract({
                     address: contractAddress,
@@ -629,7 +659,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 });
             } else {
                 // Fallback to direct MetaMask interaction
-                console.log('🔄 Using direct MetaMask interaction');
+
 
                 // Check if MetaMask is available
                 if (!window.ethereum) {
@@ -659,7 +689,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 hash = tx as `0x${string}`;
             }
 
-            console.log('✅ Game master claimed, transaction hash:', hash);
+
             await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}` });
 
             // Refresh status
@@ -688,7 +718,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
     };
 
     // Start a new game
-    const startGame = async (maxPlayers: number, minRange: number, maxRange: number) => {
+    const startGame = async (maxPlayers: number, minRange: number, maxRange: number, maxGuessesPerPlayer: number, speedBonusThreshold: number) => {
         if (!contract || !walletClient || !address) {
             throw new Error('Contract or wallet not available');
         }
@@ -697,20 +727,27 @@ export function useGameMaster(isPlayerMode: boolean = false) {
             setIsLoading(true);
             setError(null);
 
-            console.log('🎮 Starting new game...', { maxPlayers, minRange, maxRange });
+
 
             const hash = await walletClient.writeContract({
                 address: contractAddress,
                 abi: GAME_MASTER_ABI,
                 functionName: 'startGame',
-                args: [maxPlayers, minRange, maxRange]
+                args: [maxPlayers, minRange, maxRange, maxGuessesPerPlayer, speedBonusThreshold]
             });
 
-            console.log('✅ Game created, transaction hash:', hash);
+
             await publicClient.waitForTransactionReceipt({ hash });
 
-            // Refresh status
+            // Refresh status and clear any previous game state
             await fetchGameMasterStatus();
+
+            // Clear any previous game info to prevent routing to old games
+            setGameInfo(null);
+            setPlayers([]);
+            setHasJoined(false);
+            setCanJoin(false);
+            setCanMakeGuess(false);
 
         } catch (err) {
             console.error('Failed to start game:', err);
@@ -730,7 +767,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
             setIsLoading(true);
             setError(null);
 
-            console.log('🎮 Activating game...');
+
 
             const hash = await walletClient.writeContract({
                 address: contractAddress,
@@ -738,7 +775,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 functionName: 'activateGame'
             });
 
-            console.log('✅ Game activated, transaction hash:', hash);
+
             await publicClient.waitForTransactionReceipt({ hash });
 
             // Refresh game info
@@ -764,7 +801,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
             setIsLoading(true);
             setError(null);
 
-            console.log('🎮 Joining game with invite code:', inviteCode);
+
 
             const hash = await walletClient.writeContract({
                 address: contractAddress,
@@ -773,7 +810,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 args: [inviteCode]
             });
 
-            console.log('✅ Joined game, transaction hash:', hash);
+
             await publicClient.waitForTransactionReceipt({ hash });
 
             // Refresh status - we need to find the game ID first
@@ -798,7 +835,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
             setIsLoading(true);
             setError(null);
 
-            console.log('🎮 Joining game:', gameId);
+
 
             const hash = await walletClient.writeContract({
                 address: contractAddress,
@@ -807,7 +844,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 args: [BigInt(gameId)]
             });
 
-            console.log('✅ Joined game, transaction hash:', hash);
+
             await publicClient.waitForTransactionReceipt({ hash });
 
             // Refresh game info
@@ -831,7 +868,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
             setIsLoading(true);
             setError(null);
 
-            console.log('🎮 Making guess:', { gameId, totalGuess, secretGuess });
+
 
             const hash = await walletClient.writeContract({
                 address: contractAddress,
@@ -840,7 +877,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 args: [BigInt(gameId), totalGuess, secretGuess]
             });
 
-            console.log('✅ Guess made, transaction hash:', hash);
+
             await publicClient.waitForTransactionReceipt({ hash });
 
             // Refresh game info
@@ -864,7 +901,8 @@ export function useGameMaster(isPlayerMode: boolean = false) {
             setIsLoading(true);
             setError(null);
 
-            console.log('🎮 Ending game:', gameId);
+            // Get game info before ending to save to history
+            const currentGameInfo = gameInfo;
 
             const hash = await walletClient.writeContract({
                 address: contractAddress,
@@ -873,8 +911,27 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 args: [BigInt(gameId)]
             });
 
-            console.log('✅ Game ended, transaction hash:', hash);
             await publicClient.waitForTransactionReceipt({ hash });
+
+            // Add game to history if it was won
+            if (currentGameInfo && currentGameInfo.gameWon && currentGameInfo.winner) {
+                const gameHistoryItem = {
+                    gameId: gameId,
+                    gameMaster: currentGameInfo.gameMaster,
+                    winner: currentGameInfo.winner,
+                    totalGuesses: currentGameInfo.totalGuesses,
+                    maxPlayers: currentGameInfo.maxPlayers,
+                    playerCount: currentGameInfo.playerCount,
+                    winType: currentGameInfo.winType || 1,
+                    completedAt: Date.now(),
+                    range: { min: currentGameInfo.minRange, max: currentGameInfo.maxRange }
+                };
+
+                // Add to history using the global function
+                if ((window as any).addGameToHistory) {
+                    (window as any).addGameToHistory(gameHistoryItem);
+                }
+            }
 
             // Refresh game master status
             await fetchGameMasterStatus();
@@ -899,7 +956,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
             setIsLoading(true);
             setError(null);
 
-            console.log('🎮 Resetting game:', gameId);
+
 
             const hash = await walletClient.writeContract({
                 address: contractAddress,
@@ -908,7 +965,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
                 args: [BigInt(gameId)]
             });
 
-            console.log('✅ Game reset, transaction hash:', hash);
+
             await publicClient.waitForTransactionReceipt({ hash });
 
             // Refresh status

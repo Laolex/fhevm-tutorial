@@ -63,10 +63,10 @@ export function useRegularContract() {
     } : null;
 
     const fetchGameData = useCallback(async () => {
-        console.log('🔄 Fetching game data from regular contract...', { contract: !!contract, address });
+
 
         if (!contract || !publicClient || !address) {
-            console.log('⚠️ No contract or client available');
+
             setIsLoading(false);
             return;
         }
@@ -142,7 +142,7 @@ export function useRegularContract() {
     }, [contract, publicClient, address, contractAddress]);
 
     const startGame = async (secretNumber: number) => {
-        console.log('🎮 Starting game with secret number:', secretNumber);
+
 
         if (!contract || !walletClient || !address) {
             throw new Error('Contract or wallet not available');
@@ -160,7 +160,7 @@ export function useRegularContract() {
                 args: [BigInt(secretNumber)]
             });
 
-            console.log('✅ Game started, transaction hash:', hash);
+
 
             // Wait for transaction confirmation
             await publicClient.waitForTransactionReceipt({ hash });
@@ -177,7 +177,7 @@ export function useRegularContract() {
     };
 
     const joinGame = async () => {
-        console.log('🎮 Joining game...');
+
 
         if (!contract || !walletClient || !address) {
             throw new Error('Contract or wallet not available');
@@ -193,7 +193,7 @@ export function useRegularContract() {
                 functionName: 'joinGame'
             });
 
-            console.log('✅ Joined game, transaction hash:', hash);
+
 
             await publicClient.waitForTransactionReceipt({ hash });
             await fetchGameData();
@@ -207,7 +207,7 @@ export function useRegularContract() {
     };
 
     const makeGuess = async (guess: number) => {
-        console.log('🎯 Making guess:', guess);
+
 
         if (!contract || !walletClient || !address) {
             throw new Error('Contract or wallet not available');
@@ -224,7 +224,7 @@ export function useRegularContract() {
                 args: [BigInt(guess)]
             });
 
-            console.log('✅ Guess made, transaction hash:', hash);
+
 
             await publicClient.waitForTransactionReceipt({ hash });
             await fetchGameData();
@@ -238,7 +238,7 @@ export function useRegularContract() {
     };
 
     const resetGame = async () => {
-        console.log('🔄 Resetting game...');
+
 
         if (!contract || !walletClient || !address) {
             throw new Error('Contract or wallet not available');
@@ -254,7 +254,7 @@ export function useRegularContract() {
                 functionName: 'resetGame'
             });
 
-            console.log('✅ Game reset, transaction hash:', hash);
+
 
             await publicClient.waitForTransactionReceipt({ hash });
             await fetchGameData();

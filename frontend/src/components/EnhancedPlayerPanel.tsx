@@ -52,7 +52,7 @@ export function EnhancedPlayerPanel() {
             setIsLoading(true);
             setError(null);
             await joinGame();
-            console.log('✅ Joined enhanced game successfully');
+
         } catch (err) {
             console.error('Failed to join enhanced game:', err);
             setError(err instanceof Error ? err.message : 'Failed to join game');
@@ -86,7 +86,7 @@ export function EnhancedPlayerPanel() {
             await makeGuess(totalGuess, secretGuess);
             setTotalGuessInput('');
             setSecretGuessInput('');
-            console.log('✅ Enhanced dual guess submitted successfully');
+
         } catch (err) {
             console.error('Failed to make enhanced guess:', err);
             setError(err instanceof Error ? err.message : 'Failed to make guess');

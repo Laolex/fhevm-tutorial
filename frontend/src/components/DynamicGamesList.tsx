@@ -238,7 +238,7 @@ export const DynamicGamesList = memo(function DynamicGamesList({ onJoinGame }: {
         try {
             // First get the game ID from the invite code
             const gameId = await getGameIdByInviteCode(inviteCode.trim());
-            console.log('🎮 Found game ID for invite code:', gameId);
+
 
             if (gameId > 0) {
                 await joinGameWithInvite(inviteCode.trim());
@@ -355,7 +355,7 @@ export const DynamicGamesList = memo(function DynamicGamesList({ onJoinGame }: {
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
                                             <div>
                                                 <span className="font-medium">Game Master:</span>
-                                                <p className="font-mono text-xs break-all">{game.gameMaster}</p>
+                                                <p className="font-mono text-xs">{game.gameMaster?.slice(0, 6)}...{game.gameMaster?.slice(-4)}</p>
                                             </div>
                                             <div>
                                                 <span className="font-medium">Players:</span>

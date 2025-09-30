@@ -45,15 +45,15 @@ export function useSecretGame() {
     } : null;
 
     const fetchGameData = useCallback(async () => {
-        console.log('🔄 Fetching game data...', { contract: !!contract, address });
+
 
         if (!contract) {
-            console.log('⚠️ Contract not available - using tutorial simulation mode');
+
             // For tutorial purposes, simulate game data when no contract is deployed
             setGameStatus(0); // Waiting
             const currentGameMaster = address || '0x0000000000000000000000000000000000000000';
             setGameMaster(currentGameMaster);
-            console.log('🎮 Setting game master to:', currentGameMaster, 'for address:', address);
+
             setGameId('1234567890');
             setPlayerCount(0);
             setPlayers([]);
@@ -67,14 +67,14 @@ export function useSecretGame() {
 
             // For tutorial purposes, we'll simulate game data
             // In a real deployment, this would fetch from the actual contract
-            console.log('Simulating game data fetch');
+
 
             // Simulate game data
             setGameStatus(0); // Waiting
             // Set the current address as game master (first connected address becomes game master)
             const currentGameMaster = address || '0x0000000000000000000000000000000000000000';
             setGameMaster(currentGameMaster);
-            console.log('🎮 Setting game master to:', currentGameMaster);
+
             setGameId('1234567890');
             setPlayerCount(0);
             setPlayers([]);
@@ -87,19 +87,19 @@ export function useSecretGame() {
     }, [contract, address]);
 
     const startGame = async (encryptedSecretNumber: string) => {
-        console.log('🎮 Starting game with encrypted secret:', encryptedSecretNumber);
+
 
         if (!contract) {
-            console.log('⚠️ Contract not available - using tutorial simulation mode');
+
             // For tutorial purposes, simulate the game start
-            console.log('✅ Simulating startGame transaction...');
+
 
             // Simulate successful transaction
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             // Update game status to active (1)
             setGameStatus(1);
-            console.log('🎯 Game status updated to active (1)');
+
 
             // Also update other game state
             setPlayerCount(1); // Game master is now a player
@@ -111,14 +111,14 @@ export function useSecretGame() {
         try {
             // For tutorial purposes, we'll simulate the transaction
             // In a real deployment, this would call the actual contract
-            console.log('✅ Simulating startGame transaction...');
+
 
             // Simulate successful transaction
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             // Update game status to active (1)
             setGameStatus(1);
-            console.log('🎯 Game status updated to active (1)');
+
 
             await fetchGameData();
         } catch (err) {
@@ -129,14 +129,14 @@ export function useSecretGame() {
 
     const joinGame = async () => {
         if (!contract) {
-            console.log('⚠️ Contract not available - simulating joinGame');
+
             await new Promise(resolve => setTimeout(resolve, 1000));
             return;
         }
 
         try {
             // For tutorial purposes, we'll simulate the transaction
-            console.log('Simulating joinGame transaction');
+
 
             // Simulate successful transaction
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -148,14 +148,14 @@ export function useSecretGame() {
     };
 
     const makeGuess = async (encryptedGuess: string, actualGuess: number) => {
-        console.log('🎯 Making guess:', { encryptedGuess, actualGuess, address });
+
 
         if (!address) {
             throw new Error('Wallet not connected');
         }
 
         if (!contract) {
-            console.log('⚠️ Contract not available - simulating makeGuess with:', encryptedGuess);
+
 
             // Simulate the guessing logic
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -183,7 +183,7 @@ export function useSecretGame() {
 
         try {
             // For tutorial purposes, we'll simulate the transaction
-            console.log('Simulating makeGuess transaction with encrypted guess:', encryptedGuess);
+
 
             // Simulate successful transaction
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -206,7 +206,7 @@ export function useSecretGame() {
                     setGameWon(true);
                     setWinner(playerAddress);
                     setGameStatus(2); // Game finished
-                    console.log('🎉 Winner found!', { player: playerAddress, correctGuess: lastGuess, totalGuesses });
+
                 }
 
                 return isWinner;
@@ -230,7 +230,7 @@ export function useSecretGame() {
 
     const resetGame = async () => {
         if (!contract) {
-            console.log('⚠️ Contract not available - simulating resetGame');
+
             await new Promise(resolve => setTimeout(resolve, 1000));
             setGameStatus(0);
             return;
@@ -238,7 +238,7 @@ export function useSecretGame() {
 
         try {
             // For tutorial purposes, we'll simulate the transaction
-            console.log('Simulating resetGame transaction');
+
 
             // Simulate successful transaction
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -251,7 +251,7 @@ export function useSecretGame() {
 
     // Set up event listeners
     useEffect(() => {
-        console.log('Setting up game data fetching...', { contract: !!contract, publicClient: !!publicClient, address });
+
 
         // Always fetch game data, even without contract (for simulation mode)
         fetchGameData();
@@ -259,12 +259,12 @@ export function useSecretGame() {
         // Set up polling for game data (only if we have a contract)
         if (contract && publicClient) {
             const interval = setInterval(() => {
-                console.log('Polling for game data...');
+
                 fetchGameData();
             }, 5000);
 
             return () => {
-                console.log('Cleaning up game data polling...');
+
                 clearInterval(interval);
             };
         }
@@ -272,14 +272,14 @@ export function useSecretGame() {
 
     // Also fetch data when component mounts
     useEffect(() => {
-        console.log('Component mounted, fetching initial game data...');
+
         fetchGameData();
     }, []);
 
     // Update game master when address changes
     useEffect(() => {
         if (address) {
-            console.log('🎮 Address changed, updating game master to:', address);
+
             setGameMaster(address);
         }
     }, [address]);
@@ -287,7 +287,7 @@ export function useSecretGame() {
     // Also set game master on initial load
     useEffect(() => {
         if (address && !gameMaster) {
-            console.log('🎮 Setting initial game master to:', address);
+
             setGameMaster(address);
         }
     }, [address, gameMaster]);

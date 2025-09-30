@@ -6,7 +6,7 @@ export function ContractDebug() {
     const { address, isConnected } = useAccount();
 
     const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
-    const expectedAddress = '0xa7B5206e874176a3B9E0a8F53ecd6A8F2aa2712d';
+    const expectedAddress = '0x262512de845F01Db2B94f4CA1883113dAa4EAe22';
 
     return (
         <div className="card bg-yellow-50 border-yellow-200">
