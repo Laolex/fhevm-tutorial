@@ -25,7 +25,8 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
         isLoading,
         refreshGameInfo,
         getPlayerGuessCount,
-        endGame
+        endGame,
+        getSecretNumber
     } = gameMasterHook;
 
     // Add state stabilization for players
@@ -40,6 +41,10 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
             setLastGameId(gameId);
             setIsPlayerMode(true);
             setIsInitialized(true);
+            // Reset alert states for new game
+            setHasShownAutoEndAlert(false);
+            setHasAutoEnded(false);
+            setSecretNumber(null);
         }
     }, [gameId, lastGameId]);
 
@@ -84,6 +89,10 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
     const [guessCount, setGuessCount] = useState<number>(0);
     const [showNotification, setShowNotification] = useState<boolean>(false);
     const [notificationMessage, setNotificationMessage] = useState<string>('');
+    const [hasShownAutoEndAlert, setHasShownAutoEndAlert] = useState<boolean>(false);
+    const [hasAutoEnded, setHasAutoEnded] = useState<boolean>(false);
+    const [secretNumber, setSecretNumber] = useState<number | null>(null);
+    const [isRevealingSecret, setIsRevealingSecret] = useState<boolean>(false);
 
     // Fetch guess count for current user
     const fetchGuessCount = useCallback(async () => {
@@ -145,30 +154,31 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
 
     // Auto-end game when all players have made maximum guesses
     useEffect(() => {
-        if (gameInfo && gameInfo.status === 1 && !gameInfo.gameWon && players.length > 0) {
+        if (gameInfo && gameInfo.status === 1 && !gameInfo.gameWon && players.length > 0 && !hasAutoEnded) {
             const maxGuessesPerPlayer = gameInfo.maxGuessesPerPlayer || 3;
             const totalPossibleGuesses = players.length * maxGuessesPerPlayer;
 
             // Check if we should auto-end the game
             // Only auto-end if:
             // 1. We've reached the theoretical maximum guesses
-            // 2. All players have joined (or game is full)
-            // 3. Game has been active for at least 30 seconds (to allow players to join)
+            // 2. Game has been active for at least 10 seconds (to allow players to join)
             const gameActiveTime = Date.now() - (gameInfo.gameStartTime * 1000);
             const shouldAutoEnd = gameInfo.totalGuesses >= totalPossibleGuesses && 
-                                 gameInfo.playerCount >= gameInfo.maxPlayers &&
-                                 gameActiveTime > 30000; // 30 seconds
+                                 gameActiveTime > 10000; // 10 seconds
 
-            if (shouldAutoEnd) {
-                // Show notification that game will end
+            if (shouldAutoEnd && !hasShownAutoEndAlert) {
+                // Show notification that game will end (only once)
                 setNotificationMessage('🎯 All players have made their maximum guesses! Game will end automatically.');
                 setShowNotification(true);
+                setHasShownAutoEndAlert(true);
+                
                 setTimeout(() => setShowNotification(false), 5000);
 
                 // Auto-end the game after a short delay
                 setTimeout(async () => {
-                    if (address && gameInfo.gameMaster?.toLowerCase() === address.toLowerCase()) {
+                    if (address && gameInfo.gameMaster?.toLowerCase() === address.toLowerCase() && !hasAutoEnded) {
                         try {
+                            setHasAutoEnded(true);
                             await endGame(gameId);
                             
                             // Add game to history after auto-ending
@@ -190,12 +200,13 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
                             }
                         } catch (error) {
                             console.error('Failed to auto-end game:', error);
+                            setHasAutoEnded(false); // Reset on error
                         }
                     }
-                }, 3000); // Increased delay to 3 seconds
+                }, 3000);
             }
         }
-    }, [gameInfo, players.length, address, gameId, endGame]);
+    }, [gameInfo, players.length, address, gameId, endGame, hasShownAutoEndAlert, hasAutoEnded]);
 
     // Handle joining the game if not already joined
     const handleJoinGame = async () => {
@@ -294,6 +305,30 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
             setError(err instanceof Error ? err.message : 'Failed to end game');
         } finally {
             setIsEnding(false);
+        }
+    };
+
+    // Handle revealing the secret number (for game masters)
+    const handleRevealSecret = async () => {
+        try {
+            setIsRevealingSecret(true);
+            setError(null);
+            
+            if (!getSecretNumber) {
+                throw new Error('Secret number function not available');
+            }
+            
+            const secret = await getSecretNumber(gameId);
+            setSecretNumber(secret);
+            
+            setNotificationMessage(`🔐 Secret number revealed: ${secret}`);
+            setShowNotification(true);
+            setTimeout(() => setShowNotification(false), 5000);
+            
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to reveal secret number');
+        } finally {
+            setIsRevealingSecret(false);
         }
     };
 
@@ -434,6 +469,41 @@ export const ParticipantGameInterface = memo(function ParticipantGameInterface({
                         ) : (
                             <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded">
                                 <p className="text-red-800 font-semibold">😔 You lost this game</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Secret Number Reveal (Game Master Only) */}
+                {gameInfo?.status === 2 && address && gameInfo?.gameMaster && gameInfo.gameMaster.toLowerCase() === address.toLowerCase() && (
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center space-x-2 mb-3">
+                            <span className="font-semibold text-blue-800">🔐 Game Master Tools</span>
+                        </div>
+                        
+                        {secretNumber !== null ? (
+                            <div className="p-3 bg-white border border-blue-300 rounded-lg">
+                                <p className="text-blue-800 font-semibold">Secret Number:</p>
+                                <p className="text-2xl font-bold text-blue-600 mt-1">{secretNumber}</p>
+                                <p className="text-blue-600 text-sm mt-1">This was the number players were trying to guess!</p>
+                            </div>
+                        ) : (
+                            <div>
+                                <p className="text-blue-700 text-sm mb-3">
+                                    As the game master, you can reveal the secret number that players were trying to guess.
+                                </p>
+                                <button
+                                    onClick={handleRevealSecret}
+                                    disabled={isRevealingSecret || !getSecretNumber}
+                                    className="btn-primary flex items-center space-x-2"
+                                >
+                                    {isRevealingSecret ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <span>🔐</span>
+                                    )}
+                                    <span>{isRevealingSecret ? 'Revealing...' : 'Reveal Secret Number'}</span>
+                                </button>
                             </div>
                         )}
                     </div>

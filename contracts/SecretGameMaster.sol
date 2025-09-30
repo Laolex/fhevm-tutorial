@@ -552,6 +552,18 @@ contract SecretGameMaster {
         return games[_gameId].playerSecretGuesses[_player].length;
     }
 
+    /**
+     * @dev Get the secret number (only for game master after game ends)
+     * @param _gameId The game ID
+     */
+    function getSecretNumber(uint256 _gameId) external view returns (uint8) {
+        require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
+        Game storage game = games[_gameId];
+        require(msg.sender == game.gameMaster, "Only game master can access secret number");
+        require(game.status == GameStatus.Finished, "Game must be finished to reveal secret number");
+        return game.secretNumber;
+    }
+
     // Helper functions
     function findGameByInviteCode(
         string memory _inviteCode

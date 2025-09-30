@@ -180,6 +180,13 @@ const GAME_MASTER_ABI = [
     },
     {
         "type": "function",
+        "name": "getSecretNumber",
+        "inputs": [{ "name": "_gameId", "type": "uint256" }],
+        "outputs": [{ "name": "", "type": "uint8" }],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
         "name": "nextGameId",
         "inputs": [],
         "outputs": [{ "name": "", "type": "uint256" }],
@@ -1021,6 +1028,27 @@ export function useGameMaster(isPlayerMode: boolean = false) {
         }
     }, [contract, publicClient, contractAddress]);
 
+    // Get secret number (only for game master after game ends)
+    const getSecretNumber = useCallback(async (gameId: number): Promise<number> => {
+        if (!contract || !publicClient) {
+            throw new Error('Contract not available');
+        }
+
+        try {
+            const secretNumber = await publicClient.readContract({
+                address: contractAddress,
+                abi: GAME_MASTER_ABI,
+                functionName: 'getSecretNumber',
+                args: [BigInt(gameId)]
+            });
+
+            return secretNumber as number;
+        } catch (err) {
+            console.error('Failed to get secret number:', err);
+            throw err;
+        }
+    }, [contract, publicClient, contractAddress]);
+
     // Initialize and fetch data
     useEffect(() => {
         if (address && contract && !isPlayerMode) {
@@ -1056,6 +1084,7 @@ export function useGameMaster(isPlayerMode: boolean = false) {
         refreshGameInfo: fetchGameInfo,
         getGameIdByInviteCode,
         getPlayerGuessCount,
+        getSecretNumber,
 
         // Additional exports for components
         publicClient,
