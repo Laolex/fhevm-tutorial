@@ -192,10 +192,7 @@ contract SecretGameMasterV2 is VRFConsumerBaseV2 {
             _speedBonusThreshold >= 1 && _speedBonusThreshold <= 5,
             "Speed bonus threshold must be between 1 and 5"
         );
-        require(
-            _commitPeriod <= 3600,
-            "Commit period cannot exceed 1 hour"
-        );
+        require(_commitPeriod <= 3600, "Commit period cannot exceed 1 hour");
 
         uint256 gameId = nextGameId++;
         Game storage game = games[gameId];
@@ -278,7 +275,8 @@ contract SecretGameMasterV2 is VRFConsumerBaseV2 {
         require(game.status == GameStatus.Waiting, "Game not in waiting state");
 
         uint8 randomNumber = uint8(
-            (randomWords[0] % (game.maxRange - game.minRange + 1)) + game.minRange
+            (randomWords[0] % (game.maxRange - game.minRange + 1)) +
+                game.minRange
         );
 
         game.secretNumber = randomNumber;
@@ -303,10 +301,7 @@ contract SecretGameMasterV2 is VRFConsumerBaseV2 {
     /**
      * @dev Commit a guess (commit phase)
      */
-    function commitGuess(
-        uint256 _gameId,
-        bytes32 _commitHash
-    ) external {
+    function commitGuess(uint256 _gameId, bytes32 _commitHash) external {
         require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
 
         Game storage game = games[_gameId];
@@ -351,7 +346,10 @@ contract SecretGameMasterV2 is VRFConsumerBaseV2 {
         require(game.status == GameStatus.Active, "Game not active");
         require(game.hasJoined[msg.sender], "Must join game first");
         require(game.useCommitReveal, "Commit-reveal not enabled");
-        require(block.timestamp >= game.revealDeadline, "Reveal period not started");
+        require(
+            block.timestamp >= game.revealDeadline,
+            "Reveal period not started"
+        );
         require(
             _commitIndex < game.playerCommits[msg.sender].length,
             "Invalid commit index"
@@ -363,10 +361,16 @@ contract SecretGameMasterV2 is VRFConsumerBaseV2 {
 
         // Verify the commit
         bytes32 computedHash = keccak256(
-            abi.encodePacked(_totalGuessPrediction, _secretNumberGuess, _salt, msg.sender)
+            abi.encodePacked(
+                _totalGuessPrediction,
+                _secretNumberGuess,
+                _salt,
+                msg.sender
+            )
         );
         require(
-            computedHash == game.playerCommits[msg.sender][_commitIndex].commitHash,
+            computedHash ==
+                game.playerCommits[msg.sender][_commitIndex].commitHash,
             "Invalid reveal"
         );
 
@@ -376,7 +380,12 @@ contract SecretGameMasterV2 is VRFConsumerBaseV2 {
         // Process the guess (same logic as makeGuess)
         _processGuess(_gameId, _totalGuessPrediction, _secretNumberGuess);
 
-        emit GuessRevealed(_gameId, msg.sender, _secretNumberGuess, _totalGuessPrediction);
+        emit GuessRevealed(
+            _gameId,
+            msg.sender,
+            _secretNumberGuess,
+            _totalGuessPrediction
+        );
     }
 
     /**
@@ -721,7 +730,9 @@ contract SecretGameMasterV2 is VRFConsumerBaseV2 {
             _index < games[_gameId].playerCommits[_player].length,
             "Invalid index"
         );
-        GuessCommit storage commit = games[_gameId].playerCommits[_player][_index];
+        GuessCommit storage commit = games[_gameId].playerCommits[_player][
+            _index
+        ];
         return (commit.commitHash, commit.timestamp, commit.revealed);
     }
 
@@ -775,7 +786,9 @@ contract SecretGameMasterV2 is VRFConsumerBaseV2 {
         uint8 _secretGuess,
         bytes32 _salt
     ) external view returns (bytes32) {
-        return keccak256(abi.encodePacked(_totalGuess, _secretGuess, _salt, msg.sender));
+        return
+            keccak256(
+                abi.encodePacked(_totalGuess, _secretGuess, _salt, msg.sender)
+            );
     }
 }
-
