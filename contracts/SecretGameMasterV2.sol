@@ -1,19 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
+
 /**
- * @title SecretGameMaster
- * @dev Enhanced Secret Number Guessing Game with Game Master Assignment
+ * @title SecretGameMaster V2
+ * @dev Enhanced Secret Number Guessing Game with Commit-Reveal and Chainlink VRF
  *
- * This contract allows users to become game masters and create their own games.
- * Features:
- * - Users can claim game master status
- * - Each game master can create one active game
- * - Game master can set game rules and invite players
- * - Blockchain-random secret number selection
- * - Invite code system for easy game joining
+ * New Features:
+ * - Commit-Reveal mechanism to prevent front-running
+ * - Chainlink VRF for verifiable randomness
+ * - Enhanced security and fairness
  */
-contract SecretGameMaster {
+contract SecretGameMasterV2 is VRFConsumerBaseV2 {
+    // Chainlink VRF Configuration
+    VRFCoordinatorV2Interface private immutable vrfCoordinator;
+    bytes32 private immutable keyHash;
+    uint64 private immutable subscriptionId;
+    uint32 private constant CALLBACK_GAS_LIMIT = 100000;
+    uint16 private constant REQUEST_CONFIRMATIONS = 3;
+    uint32 private constant NUM_WORDS = 1;
+
+    // Mapping from VRF request ID to game ID
+    mapping(uint256 => uint256) private requestIdToGameId;
+
     // Game state
     enum GameStatus {
         Waiting,
@@ -51,23 +62,26 @@ contract SecretGameMaster {
         mapping(address => uint8[]) playerSecretGuesses;
         mapping(address => uint8[]) playerTotalGuesses;
         // Enhanced features
-        uint8 maxGuessesPerPlayer; // Custom guess limit per player
-        uint8 winType; // 1=correct guess, 2=closest guess, 3=speed bonus
-        address closestGuesser; // Player with closest guess
-        uint8 closestGuess; // The closest guess value
-        uint8 speedBonusThreshold; // First X correct guesses get speed bonus
-        uint8 hintsGiven; // Number of hints given
-        uint256 gameStartTime; // When game was activated
-        // Commit-Reveal mappings
+        uint8 maxGuessesPerPlayer;
+        uint8 winType;
+        address closestGuesser;
+        uint8 closestGuess;
+        uint8 speedBonusThreshold;
+        uint8 hintsGiven;
+        uint256 gameStartTime;
+        // Commit-Reveal
         mapping(address => GuessCommit[]) playerCommits;
-        uint256 revealDeadline; // Timestamp after which reveals are allowed
-        uint256 commitPeriod; // Duration for commit phase (in seconds)
+        uint256 revealDeadline;
+        uint256 commitPeriod;
+        bool useCommitReveal;
+        // Chainlink VRF
+        uint256 vrfRequestId;
+        bool randomnessRequested;
     }
 
-    // Games storage (internal to avoid auto-generated getters exposing nested mappings)
+    // Games storage
     mapping(uint256 => Game) internal games;
     uint256 public nextGameId = 1;
-    // Invite code lookup for O(1) game id resolution
     mapping(bytes32 => uint256) private inviteCodeToGameId;
 
     // Events
@@ -91,8 +105,6 @@ contract SecretGameMaster {
     );
     event GameReset(uint256 indexed gameId);
     event GameEnded(uint256 indexed gameId, address indexed gameMaster);
-
-    // Enhanced events
     event ClosestGuessWinner(
         uint256 indexed gameId,
         address indexed winner,
@@ -113,7 +125,8 @@ contract SecretGameMaster {
     event GuessCommitted(
         uint256 indexed gameId,
         address indexed player,
-        bytes32 commitHash
+        bytes32 commitHash,
+        uint256 commitIndex
     );
     event GuessRevealed(
         uint256 indexed gameId,
@@ -121,10 +134,28 @@ contract SecretGameMaster {
         uint8 secretGuess,
         uint8 totalGuess
     );
+    event GameStarted(
+        uint256 indexed gameId,
+        address indexed gameMaster,
+        uint8 maxPlayers,
+        uint8 minRange,
+        uint8 maxRange
+    );
+    event RandomnessRequested(uint256 indexed gameId, uint256 requestId);
+    event RandomnessFulfilled(uint256 indexed gameId, uint256 randomNumber);
+
+    constructor(
+        address _vrfCoordinator,
+        bytes32 _keyHash,
+        uint64 _subscriptionId
+    ) VRFConsumerBaseV2(_vrfCoordinator) {
+        vrfCoordinator = VRFCoordinatorV2Interface(_vrfCoordinator);
+        keyHash = _keyHash;
+        subscriptionId = _subscriptionId;
+    }
 
     /**
      * @dev Claim game master status
-     * Anyone can become a game master by calling this function
      */
     function claimGameMaster() external {
         require(!isGameMaster[msg.sender], "Already a game master");
@@ -135,19 +166,16 @@ contract SecretGameMaster {
     }
 
     /**
-     * @dev Start a new game (only game masters)
-     * @param _maxPlayers Maximum number of players
-     * @param _minRange Minimum value for secret number range
-     * @param _maxRange Maximum value for secret number range
-     * @param _maxGuessesPerPlayer Maximum guesses per player (1-10)
-     * @param _speedBonusThreshold First X correct guesses get speed bonus
+     * @dev Start a new game with optional commit-reveal
      */
     function startGame(
         uint8 _maxPlayers,
         uint8 _minRange,
         uint8 _maxRange,
         uint8 _maxGuessesPerPlayer,
-        uint8 _speedBonusThreshold
+        uint8 _speedBonusThreshold,
+        uint256 _commitPeriod,
+        bool _useCommitReveal
     ) external {
         require(isGameMaster[msg.sender], "Not a game master");
         require(!hasActiveGame[msg.sender], "Already has an active game");
@@ -164,11 +192,14 @@ contract SecretGameMaster {
             _speedBonusThreshold >= 1 && _speedBonusThreshold <= 5,
             "Speed bonus threshold must be between 1 and 5"
         );
+        require(
+            _commitPeriod <= 3600,
+            "Commit period cannot exceed 1 hour"
+        );
 
         uint256 gameId = nextGameId++;
         Game storage game = games[gameId];
 
-        // Set game master and basic info
         game.gameMaster = msg.sender;
         game.gameId = gameId;
         game.status = GameStatus.Waiting;
@@ -178,8 +209,6 @@ contract SecretGameMaster {
         game.totalGuesses = 0;
         game.gameWon = false;
         game.winner = address(0);
-
-        // Enhanced features initialization
         game.maxGuessesPerPlayer = _maxGuessesPerPlayer;
         game.winType = 0;
         game.closestGuesser = address(0);
@@ -187,8 +216,10 @@ contract SecretGameMaster {
         game.speedBonusThreshold = _speedBonusThreshold;
         game.hintsGiven = 0;
         game.gameStartTime = 0;
+        game.commitPeriod = _commitPeriod;
+        game.useCommitReveal = _useCommitReveal;
+        game.randomnessRequested = false;
 
-        // Generate invite code (simple hash-based)
         game.inviteCode = string(
             abi.encodePacked(
                 "GM",
@@ -197,18 +228,15 @@ contract SecretGameMaster {
             )
         );
 
-        // Mark game master as having active game
         hasActiveGame[msg.sender] = true;
         gameMasterGameId[msg.sender] = gameId;
-
-        // Register invite code mapping for O(1) lookup
         inviteCodeToGameId[keccak256(bytes(game.inviteCode))] = gameId;
 
         emit GameCreated(gameId, msg.sender, game.inviteCode);
     }
 
     /**
-     * @dev Activate the game (start with random secret number)
+     * @dev Activate the game with Chainlink VRF randomness
      */
     function activateGame() external {
         require(isGameMaster[msg.sender], "Not a game master");
@@ -218,32 +246,54 @@ contract SecretGameMaster {
         Game storage game = games[gameId];
 
         require(game.status == GameStatus.Waiting, "Game not in waiting state");
+        require(!game.randomnessRequested, "Randomness already requested");
 
-        // Generate blockchain-random secret number
-        uint256 randomSeed = uint256(
-            keccak256(
-                abi.encodePacked(
-                    block.timestamp,
-                    block.prevrandao,
-                    block.coinbase,
-                    blockhash(block.number - 1),
-                    blockhash(block.number - 2),
-                    msg.sender,
-                    gameId
-                )
-            )
+        // Request randomness from Chainlink VRF
+        uint256 requestId = vrfCoordinator.requestRandomWords(
+            keyHash,
+            subscriptionId,
+            REQUEST_CONFIRMATIONS,
+            CALLBACK_GAS_LIMIT,
+            NUM_WORDS
         );
+
+        game.vrfRequestId = requestId;
+        game.randomnessRequested = true;
+        requestIdToGameId[requestId] = gameId;
+
+        emit RandomnessRequested(gameId, requestId);
+    }
+
+    /**
+     * @dev Chainlink VRF callback
+     */
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) internal override {
+        uint256 gameId = requestIdToGameId[requestId];
+        require(gameId > 0, "Invalid request ID");
+
+        Game storage game = games[gameId];
+        require(game.status == GameStatus.Waiting, "Game not in waiting state");
+
         uint8 randomNumber = uint8(
-            (randomSeed % (game.maxRange - game.minRange + 1)) + game.minRange
+            (randomWords[0] % (game.maxRange - game.minRange + 1)) + game.minRange
         );
 
         game.secretNumber = randomNumber;
         game.status = GameStatus.Active;
         game.gameStartTime = block.timestamp;
 
+        // Set reveal deadline if commit-reveal is enabled
+        if (game.useCommitReveal && game.commitPeriod > 0) {
+            game.revealDeadline = block.timestamp + game.commitPeriod;
+        }
+
+        emit RandomnessFulfilled(gameId, randomNumber);
         emit GameStarted(
             gameId,
-            msg.sender,
+            game.gameMaster,
             game.maxPlayers,
             game.minRange,
             game.maxRange
@@ -251,11 +301,171 @@ contract SecretGameMaster {
     }
 
     /**
+     * @dev Commit a guess (commit phase)
+     */
+    function commitGuess(
+        uint256 _gameId,
+        bytes32 _commitHash
+    ) external {
+        require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
+
+        Game storage game = games[_gameId];
+        require(game.status == GameStatus.Active, "Game not active");
+        require(game.hasJoined[msg.sender], "Must join game first");
+        require(game.useCommitReveal, "Commit-reveal not enabled");
+        require(block.timestamp < game.revealDeadline, "Commit period ended");
+        require(
+            game.playerCommits[msg.sender].length < game.maxGuessesPerPlayer,
+            "Maximum commits exceeded"
+        );
+
+        GuessCommit memory newCommit = GuessCommit({
+            commitHash: _commitHash,
+            timestamp: block.timestamp,
+            revealed: false
+        });
+
+        game.playerCommits[msg.sender].push(newCommit);
+
+        emit GuessCommitted(
+            _gameId,
+            msg.sender,
+            _commitHash,
+            game.playerCommits[msg.sender].length - 1
+        );
+    }
+
+    /**
+     * @dev Reveal a committed guess
+     */
+    function revealGuess(
+        uint256 _gameId,
+        uint256 _commitIndex,
+        uint8 _totalGuessPrediction,
+        uint8 _secretNumberGuess,
+        bytes32 _salt
+    ) external {
+        require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
+
+        Game storage game = games[_gameId];
+        require(game.status == GameStatus.Active, "Game not active");
+        require(game.hasJoined[msg.sender], "Must join game first");
+        require(game.useCommitReveal, "Commit-reveal not enabled");
+        require(block.timestamp >= game.revealDeadline, "Reveal period not started");
+        require(
+            _commitIndex < game.playerCommits[msg.sender].length,
+            "Invalid commit index"
+        );
+        require(
+            !game.playerCommits[msg.sender][_commitIndex].revealed,
+            "Already revealed"
+        );
+
+        // Verify the commit
+        bytes32 computedHash = keccak256(
+            abi.encodePacked(_totalGuessPrediction, _secretNumberGuess, _salt, msg.sender)
+        );
+        require(
+            computedHash == game.playerCommits[msg.sender][_commitIndex].commitHash,
+            "Invalid reveal"
+        );
+
+        // Mark as revealed
+        game.playerCommits[msg.sender][_commitIndex].revealed = true;
+
+        // Process the guess (same logic as makeGuess)
+        _processGuess(_gameId, _totalGuessPrediction, _secretNumberGuess);
+
+        emit GuessRevealed(_gameId, msg.sender, _secretNumberGuess, _totalGuessPrediction);
+    }
+
+    /**
+     * @dev Make a guess (direct mode, no commit-reveal)
+     */
+    function makeGuess(
+        uint256 _gameId,
+        uint8 _totalGuessPrediction,
+        uint8 _secretNumberGuess
+    ) external {
+        require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
+
+        Game storage game = games[_gameId];
+        require(game.status == GameStatus.Active, "Game not active");
+        require(!game.useCommitReveal, "Must use commit-reveal");
+        require(game.hasJoined[msg.sender], "Must join game first");
+
+        _processGuess(_gameId, _totalGuessPrediction, _secretNumberGuess);
+    }
+
+    /**
+     * @dev Internal function to process a guess
+     */
+    function _processGuess(
+        uint256 _gameId,
+        uint8 _totalGuessPrediction,
+        uint8 _secretNumberGuess
+    ) internal {
+        Game storage game = games[_gameId];
+
+        require(
+            _secretNumberGuess >= game.minRange &&
+                _secretNumberGuess <= game.maxRange,
+            "Guess out of range"
+        );
+        require(
+            game.playerSecretGuesses[msg.sender].length <
+                game.maxGuessesPerPlayer,
+            "Maximum guesses exceeded"
+        );
+
+        game.playerSecretGuesses[msg.sender].push(_secretNumberGuess);
+        game.playerTotalGuesses[msg.sender].push(_totalGuessPrediction);
+        game.totalGuesses++;
+
+        emit GuessMade(
+            msg.sender,
+            _totalGuessPrediction,
+            _secretNumberGuess,
+            game.totalGuesses
+        );
+
+        // Track closest guess
+        if (!game.gameWon) {
+            uint8 currentDistance = _secretNumberGuess > game.secretNumber
+                ? _secretNumberGuess - game.secretNumber
+                : game.secretNumber - _secretNumberGuess;
+
+            if (
+                game.closestGuesser == address(0) ||
+                currentDistance < game.closestGuess
+            ) {
+                game.closestGuesser = msg.sender;
+                game.closestGuess = currentDistance;
+            }
+        }
+
+        // Check for winning guess
+        if (_secretNumberGuess == game.secretNumber && !game.gameWon) {
+            game.gameWon = true;
+            game.winner = msg.sender;
+            game.status = GameStatus.Finished;
+
+            if (game.totalGuesses <= game.speedBonusThreshold) {
+                game.winType = 3;
+                emit SpeedBonus(_gameId, msg.sender, game.totalGuesses);
+            } else {
+                game.winType = 1;
+            }
+
+            emit GameWonWithType(_gameId, msg.sender, game.winType);
+            emit GameWon(msg.sender, game.secretNumber, game.totalGuesses);
+        }
+    }
+
+    /**
      * @dev Join a game using invite code
-     * @param _inviteCode The invite code for the game
      */
     function joinGameWithInvite(string memory _inviteCode) external {
-        // Find game by invite code using mapping
         uint256 gameId = findGameByInviteCode(_inviteCode);
         require(gameId > 0, "Invalid invite code");
 
@@ -271,8 +481,7 @@ contract SecretGameMaster {
     }
 
     /**
-     * @dev Join a game by game ID (for direct access)
-     * @param _gameId The game ID to join
+     * @dev Join a game by ID
      */
     function joinGame(uint256 _gameId) external {
         require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
@@ -289,117 +498,7 @@ contract SecretGameMaster {
     }
 
     /**
-     * @dev Make a guess in the game
-     * @param _gameId The game ID
-     * @param _totalGuessPrediction Prediction for total number of guesses
-     * @param _secretNumberGuess Guess for the secret number
-     */
-    function makeGuess(
-        uint256 _gameId,
-        uint8 _totalGuessPrediction,
-        uint8 _secretNumberGuess
-    ) external {
-        require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
-
-        Game storage game = games[_gameId];
-        require(game.status == GameStatus.Active, "Game not active");
-        require(game.hasJoined[msg.sender], "Must join game first");
-        require(
-            _secretNumberGuess >= game.minRange &&
-                _secretNumberGuess <= game.maxRange,
-            "Guess out of range"
-        );
-
-        // Check if player has made too many guesses (custom limit)
-        require(
-            game.playerSecretGuesses[msg.sender].length <
-                game.maxGuessesPerPlayer,
-            "Maximum guesses per player exceeded"
-        );
-
-        // Store guesses
-        game.playerSecretGuesses[msg.sender].push(_secretNumberGuess);
-        game.playerTotalGuesses[msg.sender].push(_totalGuessPrediction);
-        game.totalGuesses++;
-
-        emit GuessMade(
-            msg.sender,
-            _totalGuessPrediction,
-            _secretNumberGuess,
-            game.totalGuesses
-        );
-
-        // Track closest guess for fallback winner
-        if (!game.gameWon) {
-            uint8 currentDistance = _secretNumberGuess > game.secretNumber
-                ? _secretNumberGuess - game.secretNumber
-                : game.secretNumber - _secretNumberGuess;
-
-            if (
-                game.closestGuesser == address(0) ||
-                currentDistance < game.closestGuess
-            ) {
-                game.closestGuesser = msg.sender;
-                game.closestGuess = currentDistance;
-            }
-        }
-
-        // Check if this is a winning guess
-        if (_secretNumberGuess == game.secretNumber && !game.gameWon) {
-            game.gameWon = true;
-            game.winner = msg.sender;
-            game.status = GameStatus.Finished;
-
-            // Determine win type
-            if (game.totalGuesses <= game.speedBonusThreshold) {
-                game.winType = 3; // Speed bonus
-                emit SpeedBonus(_gameId, msg.sender, game.totalGuesses);
-            } else {
-                game.winType = 1; // Correct guess
-            }
-
-            emit GameWonWithType(_gameId, msg.sender, game.winType);
-            emit GameWon(msg.sender, game.secretNumber, game.totalGuesses);
-        }
-    }
-
-    /**
-     * @dev Reset the game (only game master)
-     * @param _gameId The ID of the game to reset
-     */
-    function resetGame(uint256 _gameId) external {
-        require(isGameMaster[msg.sender], "Not a game master");
-        require(hasActiveGame[msg.sender], "No active game");
-        require(gameMasterGameId[msg.sender] == _gameId, "Not your game");
-
-        Game storage game = games[_gameId];
-
-        // Reset game state
-        game.status = GameStatus.Waiting;
-        game.totalGuesses = 0;
-        game.gameWon = false;
-        game.winner = address(0);
-        game.secretNumber = 0;
-
-        // Clear players
-        for (uint256 i = 0; i < game.players.length; i++) {
-            address player = game.players[i];
-            game.hasJoined[player] = false;
-            delete game.playerSecretGuesses[player];
-            delete game.playerTotalGuesses[player];
-        }
-        delete game.players;
-
-        // Reset game master status
-        hasActiveGame[msg.sender] = false;
-        gameMasterGameId[msg.sender] = 0;
-
-        emit GameReset(_gameId);
-    }
-
-    /**
-     * @dev End the game (only game master)
-     * @param _gameId The ID of the game to end
+     * @dev End the game
      */
     function endGame(uint256 _gameId) external {
         require(isGameMaster[msg.sender], "Not a game master");
@@ -409,16 +508,13 @@ contract SecretGameMaster {
         Game storage game = games[_gameId];
         require(game.status == GameStatus.Active, "Game not active");
 
-        // End the game
         game.status = GameStatus.Finished;
 
-        // If no winner, determine winner based on closest guess
         if (!game.gameWon) {
             if (game.closestGuesser != address(0)) {
-                // Closest guess winner
                 game.gameWon = true;
                 game.winner = game.closestGuesser;
-                game.winType = 2; // Closest guess
+                game.winType = 2;
                 emit ClosestGuessWinner(
                     _gameId,
                     game.closestGuesser,
@@ -426,14 +522,12 @@ contract SecretGameMaster {
                     game.secretNumber
                 );
             } else {
-                // No guesses made, game master wins
                 game.gameWon = true;
                 game.winner = msg.sender;
-                game.winType = 0; // Game master default
+                game.winType = 0;
             }
         }
 
-        // Reset game master status
         hasActiveGame[msg.sender] = false;
         gameMasterGameId[msg.sender] = 0;
 
@@ -441,8 +535,38 @@ contract SecretGameMaster {
     }
 
     /**
-     * @dev Give a hint to players (only game master)
-     * @param _gameId The ID of the game
+     * @dev Reset game
+     */
+    function resetGame(uint256 _gameId) external {
+        require(isGameMaster[msg.sender], "Not a game master");
+        require(hasActiveGame[msg.sender], "No active game");
+        require(gameMasterGameId[msg.sender] == _gameId, "Not your game");
+
+        Game storage game = games[_gameId];
+
+        game.status = GameStatus.Waiting;
+        game.totalGuesses = 0;
+        game.gameWon = false;
+        game.winner = address(0);
+        game.secretNumber = 0;
+
+        for (uint256 i = 0; i < game.players.length; i++) {
+            address player = game.players[i];
+            game.hasJoined[player] = false;
+            delete game.playerSecretGuesses[player];
+            delete game.playerTotalGuesses[player];
+            delete game.playerCommits[player];
+        }
+        delete game.players;
+
+        hasActiveGame[msg.sender] = false;
+        gameMasterGameId[msg.sender] = 0;
+
+        emit GameReset(_gameId);
+    }
+
+    /**
+     * @dev Give hint
      */
     function giveHint(uint256 _gameId) external {
         require(isGameMaster[msg.sender], "Not a game master");
@@ -579,10 +703,28 @@ contract SecretGameMaster {
         return games[_gameId].playerSecretGuesses[_player].length;
     }
 
-    /**
-     * @dev Get the secret number (only for game master after game ends)
-     * @param _gameId The game ID
-     */
+    function getPlayerCommitCount(
+        uint256 _gameId,
+        address _player
+    ) external view returns (uint256) {
+        require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
+        return games[_gameId].playerCommits[_player].length;
+    }
+
+    function getCommitInfo(
+        uint256 _gameId,
+        address _player,
+        uint256 _index
+    ) external view returns (bytes32, uint256, bool) {
+        require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
+        require(
+            _index < games[_gameId].playerCommits[_player].length,
+            "Invalid index"
+        );
+        GuessCommit storage commit = games[_gameId].playerCommits[_player][_index];
+        return (commit.commitHash, commit.timestamp, commit.revealed);
+    }
+
     function getSecretNumber(uint256 _gameId) external view returns (uint8) {
         require(_gameId > 0 && _gameId < nextGameId, "Invalid game ID");
         Game storage game = games[_gameId];
@@ -601,7 +743,6 @@ contract SecretGameMaster {
     function findGameByInviteCode(
         string memory _inviteCode
     ) internal view returns (uint256) {
-        // Use mapping for O(1) lookup. Returns 0 if not found.
         bytes32 key = keccak256(bytes(_inviteCode));
         return inviteCodeToGameId[key];
     }
@@ -626,12 +767,15 @@ contract SecretGameMaster {
         return string(bstr);
     }
 
-    // Additional event for game activation
-    event GameStarted(
-        uint256 indexed gameId,
-        address indexed gameMaster,
-        uint8 maxPlayers,
-        uint8 minRange,
-        uint8 maxRange
-    );
+    /**
+     * @dev Generate a commit hash for commit-reveal
+     */
+    function generateCommitHash(
+        uint8 _totalGuess,
+        uint8 _secretGuess,
+        bytes32 _salt
+    ) external view returns (bytes32) {
+        return keccak256(abi.encodePacked(_totalGuess, _secretGuess, _salt, msg.sender));
+    }
 }
+
