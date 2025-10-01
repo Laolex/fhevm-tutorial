@@ -2,6 +2,14 @@
 
 A complete, beginner-friendly tutorial for building your first dApp using FHEVM (Fully Homomorphic Encryption Virtual Machine) on the Zama Protocol. This project demonstrates how to create a confidential blockchain application where players can make encrypted guesses without revealing their numbers.
 
+## 🌐 Live Demo & Resources
+
+🎮 **Live Demo**: [https://fhevm-tutorial-silk.vercel.app](https://fhevm-tutorial-silk.vercel.app)
+
+📹 **Video Tutorials**: [Watch on YouTube](https://www.youtube.com/playlist?list=PLNnitpBlq82_y_zHSfLzRAUx0KU3QqAAC)
+
+🔗 **GitHub Repository**: [https://github.com/Laolex/fhevm-tutorial](https://github.com/Laolex/fhevm-tutorial)
+
 ## 🎯 Project Overview
 
 This is a **Secret Number Guessing Game** where:

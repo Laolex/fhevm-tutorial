@@ -4,6 +4,18 @@
 
 A comprehensive, production-ready tutorial for building confidential dApps using FHEVM (Fully Homomorphic Encryption Virtual Machine) on the Zama Protocol, enhanced with advanced cryptographic features and professional deployment infrastructure.
 
+## 🌐 Live Demo & Resources
+
+🎮 **Live Demo**: [https://fhevm-tutorial-silk.vercel.app](https://fhevm-tutorial-silk.vercel.app)
+
+📹 **Video Tutorials**: [Watch on YouTube](https://www.youtube.com/playlist?list=PLNnitpBlq82_y_zHSfLzRAUx0KU3QqAAC)
+
+🔗 **GitHub Repository**: [https://github.com/Laolex/fhevm-tutorial](https://github.com/Laolex/fhevm-tutorial)
+
+[![CI Status](https://github.com/Laolex/fhevm-tutorial/workflows/CI/badge.svg)](https://github.com/Laolex/fhevm-tutorial/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Solidity](https://img.shields.io/badge/Solidity-^0.8.19-blue)](https://soliditylang.org/)
+
 ## 🆕 What's New in V2
 
 ### Major Features
